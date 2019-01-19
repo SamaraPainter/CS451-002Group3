@@ -1,11 +1,10 @@
 # Requirements Specification for CS451-002 Group 3 Project
 *Revision 0.9*
 
-| | | 
+
+| Group Members | Korede Aderele <br> Natie Kolbe <br> Samara Painter <br> Alex Veltchev |
 | --- | --- | --- |
-| **Group Members** | Korede Aderele <br> Natie Kolbe <br> Samara Painter <br> Alex Veltchev |
-| **Faculty Advisor** | Dr. Filippos Vokolos, Ph. D |
-| | |
+| **Faculty Advisor** | **Dr. Filippos Vokolos, Ph. D** |
 
 ## Revision History
 
