@@ -16,7 +16,7 @@
 ## Table of Contents
 
 1. [Introduction](#introduction)
-   1. [Purpose of Docuement](#purpose-of-document)
+   1. [Purpose of Document](#purpose-of-document)
    2. [Scope of Document](#scope-of-document)
    3. [Overview of Document](#overview-of-document)
 2. [Description](#description)
@@ -134,7 +134,47 @@ host and a migration of the server to the new external host.
 
 ## 3. Functional Requirements
 
+### 3.1 Server
+
+Connects to two clients at once.
+    Denies further connections while two clients are already connected.
+Can disconnect clients.
+
+Sends messages from client A to client B.
+Can understand end game state.
+
+### 3.2 Client
+
+Attempts to connect to the server upon opening.
+
+Displays GUI to user.
+
+Can initialize a game of checkers.
+Stores board state.
+Validates legal checkers moves.
+    Validates draws (NICE TO HAVE).
+Sends moves made to the server.
+Listens to the server.
+    Refreshes board state upon receiving message from server.
+Can calculate new board state given a move.
+
 ## 4. Non-Functional Requirements
+
+### 4.1 Performance
+
+
+
+### 4.2 Hardware
+
+
+
+### 4.3 Accessibility
+
+
+
+### 4.4 Network
+
+Client and Server understand same message format.
 
 ## 5. User Interface
 
