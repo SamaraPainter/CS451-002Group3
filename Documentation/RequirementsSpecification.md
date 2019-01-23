@@ -3,7 +3,7 @@
 
 | | |
 | --- | --- |
-| **Group Members** | Korede Aderele <br> Natie Kolbe <br> Samara Painter <br> Alex Veltchev |
+| **Group Members** | Korede Aderele <br> Natie Bohnel <br> Samara Painter <br> Alex Veltchev |
 | **Faculty Advisor** | Dr. Filippos Vokolos, Ph. D |
 | | |
 
@@ -12,6 +12,8 @@
 | **Name** | **Date** | **Reason for Change** | **Revision** |
 | --- | --- | --- | --- |
 | Samara Painter | 1/16/2019 | Initial Document Creation - Empty Sections with Section Headers | 0.9 |
+| Natie Bohnel | 1/23/2019 | Document Revision & Adding Sections | 0.95 |
+
 
 ## Table of Contents
 
@@ -42,7 +44,7 @@
       1. [Common](#common)
       2. [Game State Message](#game-state-message)
       3. [Game Move Message](#game-move-message)
-      4. [Opposing Player Disconnected Message](#opposing-player-disconnected-message)
+      4. [Opposing Player Disconnected Message](#opposing-user-disconnected-message)
    2. [Performance](#performance)
    3. [Hardware](#hardware)
    4. [Accessibility](#accessibility)
@@ -80,8 +82,7 @@ user interface that will be displayed by the client frontend.
 ### 2.1 Product Perspective
 
 The CS451-002 Group 3 Project is an environment that allows two remote users to play a game of checkers
-against each other, in real time. The gameplay rules enforced by the environment can be found [here](http://www.usacheckers.com).
-
+against each other in real time. The gameplay rules enforced by the environment can be found [here](http://www.usacheckers.com).
 The project is intended to be run via three separate computers: a server, and two clients. 
 
 #### 2.1.1 Server Role
@@ -223,7 +224,7 @@ host and a migration of the server to the new external host.
 + **R4.1.2.1** The body of a "Game State" message contains an indicator of the current game state, with the following options:
   + **R4.1.2.1.1** Continue, meaning it is the other connected client's turn to move.
   + **R4.1.2.1.2** Draw, meaning it is the end of the game and neither client wins.
-  + **R4.1.2.1.3** Forfeit, meaning it is the end of the game, and one of the clients has conceeded.
+  + **R4.1.2.1.3** Forfeit, meaning it is the end of the game, and one of the clients has conceded.
   + **R4.1.2.1.4** End, meaning it is the end of the game, with one client winning and one client losing.
 
 #### 4.1.3 Game Move Message
@@ -327,6 +328,58 @@ displayed by the GUI. The requirements for each screen are outlined below.
 
 ## 6. Use Cases
 
+### R6.1 Use Case Flow
+
++ **R6.1.1 Starting the Game**
+Users start the client which will attempt to connect to the server.
+**Precondition:** Less than 2 users are currently connected to the server.
+**Action:** A user launches the client
+**Postcondition:** A user connects to the server. If another user is present, the game begins. If not, the first user will wait for another to join.
++ **R6.1.3 Selecting a Piece to Move**
+Users can select a valid piece to move on their turn using the mouse.
+**Precondition:** The user has at least one valid piece which they can move. Valid pieces will be highlighted by the interface.
+**Action:** The user selects a valid piece.
+**Postcondition:** The user may select a valid space for that piece to move.
++ **R6.1.4 Moving a Selected Piece**
+Once a piece is selected, the user can decide where they want to move it to.
+**Precondition:** The user has selected a valid piece to move. Spaces which the selected piece can move to will be highlighted by the interface.
+**Action:** The user selects a valid space to move the selected piece to.
+**Postcondition:** The piece moves to the new space and the user ends their turn.
++ **R6.1.5 Capturing a Piece**
+The object of checkers is to capture all of an opponent's pieces. On a user's turn, if they have any move which captures an opponent's piece, they must make a move which captures a piece.
+**Precondition:** The user is adjacent to an opposing piece and the space behind that opposing piece is available to jump to.
+**Action:** The user jumps to the open space and captures the opposing piece.
+**Postcondition:** The opposing piece is removed from play, the user's capture count increases by one, the piece moves to the empty space, and the user ends their turn.
++ **R6.1.6 Kinging a Piece**
+Over the course of a game, pieces can be Kinged, which allows them to hop backwards as well as forwards.
+**Precondition:** The user moves a piece to the row of the board furthest from their starting side.
+**Action:** The moved piece becomes a King.
+**Postcondition:** The King piece now can move in 4 directions rather than 2.
++ **R6.1.7 Winning the Game**
+Most games of checkers will end when one user wins the game.
+**Precondition:** The user is playing a game.
+**Action:** The user captures all of their opponent's pieces.
+**Postcondition:** That user wins the game. Victory and defeat messages are appropriately displayed on both clients before they are disconnected from the server.
++ **R6.1.8 Losing the Game**
+Occasionally, a game of checkers cannot be won. In this circumstance, a loser is determined.
+**Precondition:** It is the user's turn.
+**Action:** The user has no valid moves which they can make.
+**Postcondition:** That user loses the game. Victory and defeat messages are appropriately displayed on both clients before they are disconnected from the server.
++ **R6.1.9 Starting a Rematch**
+Because the server only supports 2 users playing at a time, those users are disconnected upon the end of the game to allow other users to play. The Reconnect button allows users to requeue for another game after a game is completed.
+**Precondition:** Two users have finished playing a game and have been disconnected from the server.
+**Action:** The user clicks the Reconnect button.
+**Postcondition:** The client attempts to reconnect to the server for another game.
++ **R6.1.10 Quitting the Game**
+At any point, a player can choose to end the game. If they do, they forfeit the game to their opponent.
+**Precondition:** The user is playing a game
+**Action:** The user quits through the game interface.
+**Postcondition:** That user loses the game. Victory and defeat messages are appropriately displayed on both clients before they are disconnected from the server.
+
+### R6.2 Activity Diagram
+
 ## 7. Glossary
 
 + **Connected Client** - A client currently connected via two-way communication to the running server
++ **King** - A special piece which a regular piece is replaced with when it reaches the side of the board closest to the opponent. Kings can both move and capture in the forward and backward diagonal direction.
++ **Kinging** - The action of ascending a regular piece to a King.
