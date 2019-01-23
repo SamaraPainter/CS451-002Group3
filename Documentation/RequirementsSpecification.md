@@ -31,7 +31,21 @@
       1. [Externally Hosted Server](#externally-hosted-server)
    5. [Requirements Apportioning](#requirements-apportioning)
 3. [Functional Requirements](#functional-requirements)
+   1. [Server](#server)
+      1. [Communication](#communication)
+      2. [Messages](#messages)
+   2. [Client](#client) 
+      1. [Interactions](#interactions)
+      2. [Internal Game State](#internal-game-state) 
 4. [Non-Functional Requirements](#non-functional-requirements)
+   1. [Message Types](#message-types)
+      1. [Common](#common)
+      2. [Game State Message](#game-state-message)
+      3. [Game Move Message](#game-move-message)
+      4. [Opposing Player Disconnected Message](#opposing-player-disconnected-message)
+   2. [Performance](#performance)
+   3. [Hardware](#hardware)
+   4. [Accessibility](#accessibility)
 5. [User Interface](#user-interface)
    1. [Connecting Screen](#connecting-screen)
    2. [Game Options Screen](#game-options-screen)
@@ -91,10 +105,10 @@ The server will have the following functionality:
 
 + Ability to host one game over the Wi-Fi network between two clients
 + Ability to be connected to by two clients at a time
-+ Ability to start a game between two connected clients, including initializing the game state
++ Ability to start a game between two connected clients
 + Ability to receive moves made by a connected client
 + Ability to send moves made by one client to the other connected client
-+ Ability to end a game between two connected clients, including sending the end game state
++ Ability to end a game between two connected clients
 + Ability to disconnect clients
 + Ability to start a new game between two connected clients once a game has ended
 
@@ -136,45 +150,116 @@ host and a migration of the server to the new external host.
 
 ### 3.1 Server
 
-Connects to two clients at once.
-    Denies further connections while two clients are already connected.
-Can disconnect clients.
+#### 3.1.1 Communication
++ **R3.1.2.1** Receives connection requests from clients.
+  + **R3.1.2.1.1** Can deny connection requests.
++ **R3.1.2.2** Creates and maintains separate two-way lines of communication with the clients.
+  + **R3.1.2.2.1** Connects to only two separate clients at once.
+  + **R3.1.2.2.2** Lines of communication happen via a network connection.
++ **R3.1.2.3** Receives messages from connected clients.
++ **R3.1.2.4** Sends messages to connected clients.
+  + **R3.1.2.4.1** "Game Move" and "Game State" messages received from a connected client will be forwarded to the other connected client.
++ **R3.1.2.5** Can disconnect clients.
+  + **R3.1.2.5.1** If a connected client disconnects from the server, sends the other connected client an "Opposing Player Disconnected" message.
 
-Sends messages from client A to client B.
-Can understand end game state.
+#### 3.1.2 Messages
++ **R3.1.3.1** Reads the header of every message.
++ **R3.1.3.2** Reads the body of every "Game State" message.
+  + **R3.1.3.2.1** If a "Game State" message stating the conclusion of the game is received:
+    + **R3.1.3.2.1.1** Forwards the messages received from one connected client to the other connected client, then
+    + **R3.1.3.2.1.2** Disconnects both clients.
+  + **R3.1.3.2.2** If a "Game State" message stating the game is continuing is received, forwards all messages received from one connected client to the other connected client.
++ **R3.1.3.3** Constructs and sends "Opposing Player Disconnected" messages.
+  + **R3.1.3.3.1** After sending the "Opposing Player Disconnected" message, disconnects from the remaining connected client.
 
 ### 3.2 Client
 
-Attempts to connect to the server upon opening.
+#### 3.2.1 Interactions
 
-Displays GUI to user.
++ **R3.2.1.1** Attempts to connect to the server upon opening.
+  + **R3.2.1.1.1** Receives messages from the server.
+    + **R3.2.1.1.1.1** Upon receiving a "Game Move" message, refreshes internal board state.
+    + **R3.2.1.1.1.2** Upon receiving a "Game State" message with a state indicating the conclusion of the game has been reached, displays the "Game Result Splash Screen" via the graphical user interface (GUI).
+    + **R3.2.1.1.1.3** Upon receiving an "Opposing Player Disconnected" message, displays the "Game Result Splash Screen" via the GUI.
+  + **R3.2.1.1.2** Sends "Game State" and "Game Move" messages to the server.
++ **R3.2.1.2** Displays GUI to the user.
++ **R3.2.1.3** Can create and read "Game State" messages.
++ **R3.2.1.4** Can create and read "Game Move" messages.
+  + **R3.2.1.4.1** "Game Move" messages created reflect move choices made by the user via the GUI.
++ **R3.2.1.5** Can read "Opposing Player Disconnected" messages.
 
-Can initialize a game of checkers.
-Stores board state.
-Validates legal checkers moves.
-    Validates draws (NICE TO HAVE).
-Sends moves made to the server.
-Listens to the server.
-    Refreshes board state upon receiving message from server.
-Can calculate new board state given a move.
+#### 3.2.2 Internal Game State
+
++ **R3.2.2.1** Stores the board state of a game of checkers.
++ **R3.2.2.2** Initializes a game of checkers, including creating a board state.
++ **R3.2.2.3** Validates legal gameplay moves.
+  + **R3.2.2.3.1** Calculates all pieces that are able to be moved in a given board state.
+  + **R3.2.2.3.2** Calculates all movement paths a piece can make in a given board state.
+  + **R3.2.2.3.3** Calculates the number of friendly and enemy pieces caputured in a given board state.
+  + **R3.2.2.3.4** Calculates board state conditions indicative of:
+    + **R3.2.2.3.4.1** Continue.
+    + **R3.2.2.3.4.2** Draw.
+    + **R3.2.2.3.4.3** Winning, when the game has reached a conclusion.
+    + **R3.2.2.3.4.4** Losing, when the game has reached a conclusion.
++ **R3.2.2.4** Only allows the user to make gameplay moves validated as legal.
++ **R3.2.2.5** Calculates an updated board state given a move.
++ **R3.2.2.6** Reflects the current board state in the graphical user interface.
 
 ## 4. Non-Functional Requirements
 
-### 4.1 Performance
+### 4.1 Message Types
 
+#### 4.1.1 Common
 
++ **R4.1.1.1** Both the client and the server agree on a specific shared message format.
+  + **R4.1.1.1.1** All message types follow the same specific message format.
++ **R4.1.1.2** Messages have a header, which contain:
+  + **R4.1.1.2.1** An ID indicating what message type the message is.
++ **R4.1.1.3** Messages have a body, which contain the information that is being sent.
++ **R4.1.1.4** All messages are created by the client, apart from the "Opposing Player Disconnected Message," which is created by the server.
 
-### 4.2 Hardware
+#### 4.1.2 Game State Message
 
++ **R4.1.2.1** The body of a "Game State" message contains an indicator of the current game state, with the following options:
+  + **R4.1.2.1.1** Continue, meaning it is the other connected client's turn to move.
+  + **R4.1.2.1.2** Draw, meaning it is the end of the game and neither client wins.
+  + **R4.1.2.1.3** Forfeit, meaning it is the end of the game, and one of the clients has conceeded.
+  + **R4.1.2.1.4** End, meaning it is the end of the game, with one client winning and one client losing.
 
+#### 4.1.3 Game Move Message
 
-### 4.3 Accessibility
++ **R4.1.3.1** The body of a "Game Move" message contains enough information for a client to construct the new board state given the next game move.
 
+#### 4.1.4 Opposing Player Disconnected Message
 
++ **R4.1.4.1** The "Opposing Player Disconnected" message does not have a body.
 
-### 4.4 Network
+### 4.2 Performance
 
-Client and Server understand same message format.
++ **R4.2.1** The messages sent from one connected client are forwarded to the other connected client by the server in a time of < 5 seconds, provided the Internet connection is stable and above a speed of 30MB/s.
++ **R4.2.2** The client refreshes its display after receiving a message from the server in a time of < 3 seconds.
++ **R4.2.3** There is no discernable lag between a user interacting with the client GUI and the GUI changing in response.
+
+### 4.3 Hardware
+
++ **R4.3.1** The hardware running the server and the hardware running the client must meet the minimum requirements to run Java 8.0 as specified by [Java's Website](https://www.java.com/en/download/help/sysreq.xml).
++ **R4.3.2** The hardware running the server must have:
+  + **R4.3.2.1** Internet access
+  + **R4.3.2.2** An additional 128MB in memory to store the program
++ **R4.3.3** The hardware running the client must have:
+  + **R4.3.3.1** Internet access
+  + **R4.3.3.2** An additional 128MB in memory to store the program
+  + **R4.3.3.3** Graphics capabilities
+  + **R4.3.3.4** Screen display
+  + **R4.3.3.5** Mouse
+
+### 4.4 Accessibility
+
++ **R4.4.1** The server is running at all times on an external host, unless it is stopped for maintenance.
+  + **R4.4.1.1** In the event the server is stopped for maintenance, it will be back up in under an hour, or:
+  + **R4.4.1.2** A message updating users on the state of the server and maintenance will be posted on the project website every hour until maintenance is complete.
++ **R4.4.2** The client application is available for free download on the project website.
++ **R4.4.3** The project website is available to the public.
 
 ## 5. User Interface
 
@@ -210,7 +295,7 @@ displayed by the GUI. The requirements for each screen are outlined below.
 + **R5.3.1** The Checkers Board Screen contains an 8x8 board of square tiles in alternating colors.
   + **R5.3.1.1** The alternating colors are neither red nor black.
 + **R5.3.2** The Checkers Board Screen displays no more than 12 red circular game pieces and 12 black circular game pieces.
-  + **R5.3.2.1** When it is the user's turn, the user's pieces become clickable.
+  + **R5.3.2.1** When it is the user's turn, the user's pieces that can move flash yellow and become clickable.
     + **R5.3.2.1.1** When a piece is clicked by the user, all of the tiles that piece can legally move to flash yellow and become clickable.
       + **R5.3.2.1.1.1** The yellow flashing is defined as a fade-to-yellow and fade-from-yellow cycle which takes approximately 3 seconds.
       + **R5.2.3.1.1.2** The yellow flashing is continuously looped until a move is made or the piece is deselected (R5.3.2.1.3).
@@ -243,3 +328,5 @@ displayed by the GUI. The requirements for each screen are outlined below.
 ## 6. Use Cases
 
 ## 7. Glossary
+
++ **Connected Client** - A client currently connected via two-way communication to the running server
