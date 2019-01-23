@@ -227,13 +227,20 @@ host and a migration of the server to the new external host.
   + **R4.1.2.1.3** Forfeit, meaning it is the end of the game, and one of the clients has conceded.
   + **R4.1.2.1.4** End, meaning it is the end of the game, with one client winning and one client losing.
 
-#### 4.1.3 Game Move Message
+#### 4.1.3 Game Start Message
 
-+ **R4.1.3.1** The body of a "Game Move" message contains enough information for a client to construct the new board state given the next game move.
++ **R4.1.3.1** A "Game Start" message is sent to both clients when 2 users are connected to the server.
++ **R4.1.3.2** The game only begins after both clients have received a "Game Start" message.
++ **R4.1.3.3** The body of the "Game Start" message determines which user is red and which user is black.
+  + **R4.1.3.1** The server randomly determines which user is red and which user is black.
 
-#### 4.1.4 Opposing Player Disconnected Message
+#### 4.1.4 Game Move Message
 
-+ **R4.1.4.1** The "Opposing Player Disconnected" message does not have a body.
++ **R4.1.4.1** The body of a "Game Move" message contains enough information for a client to construct the new board state given the next game move.
+
+#### 4.1.5 Opposing Player Disconnected Message
+
++ **R4.1.5.1** The "Opposing Player Disconnected" message does not have a body.
 
 ### 4.2 Performance
 
@@ -307,6 +314,7 @@ displayed by the GUI. The requirements for each screen are outlined below.
       + **R5.3.2.2.1.3** After the user has selected a move, the GUI displays a splash screen after 3 seconds:
         + **R5.3.2.2.1.3.1** If the move caused an end game state, the Game Result Splash Screen is displayed.
         + **R5.3.2.2.1.3.2** If the move did not cause an end game state, the Waiting for Opponent Splash Screen is displayed.
+      + **R5.3.2.2.1.4** When a piece is moved, a quick animation displaying its path to the user. **Priority 3**
     + **R5.3.2.1.3** When a piece is clicked a second time by the user, the piece is deselected.
 + **R5.3.3** The Checkers Board Screen contains a "Pieces Captured" box that contains a running total of the number of opponent pieces the user has captured.
   + **R5.3.3.1** The displayed running total must not be below 0 or above 12.
@@ -335,42 +343,50 @@ Users start the client which will attempt to connect to the server.
 **Precondition:** Less than 2 users are currently connected to the server.
 **Action:** A user launches the client
 **Postcondition:** A user connects to the server. If another user is present, the game begins. If not, the first user will wait for another to join.
-+ **R6.1.3 Selecting a Piece to Move**
+
++ **R6.1.2 Selecting a Piece to Move**
 Users can select a valid piece to move on their turn using the mouse.
 **Precondition:** The user has at least one valid piece which they can move. Valid pieces will be highlighted by the interface.
 **Action:** The user selects a valid piece.
 **Postcondition:** The user may select a valid space for that piece to move.
-+ **R6.1.4 Moving a Selected Piece**
+
++ **R6.1.3 Moving a Selected Piece**
 Once a piece is selected, the user can decide where they want to move it to.
 **Precondition:** The user has selected a valid piece to move. Spaces which the selected piece can move to will be highlighted by the interface.
 **Action:** The user selects a valid space to move the selected piece to.
 **Postcondition:** The piece moves to the new space and the user ends their turn.
-+ **R6.1.5 Capturing a Piece**
+
++ **R6.1.4 Capturing a Piece**
 The object of checkers is to capture all of an opponent's pieces. On a user's turn, if they have any move which captures an opponent's piece, they must make a move which captures a piece.
 **Precondition:** The user is adjacent to an opposing piece and the space behind that opposing piece is available to jump to.
 **Action:** The user jumps to the open space and captures the opposing piece.
 **Postcondition:** The opposing piece is removed from play, the user's capture count increases by one, the piece moves to the empty space, and the user ends their turn.
-+ **R6.1.6 Kinging a Piece**
+
++ **R6.1.5 Kinging a Piece**
 Over the course of a game, pieces can be Kinged, which allows them to hop backwards as well as forwards.
 **Precondition:** The user moves a piece to the row of the board furthest from their starting side.
 **Action:** The moved piece becomes a King.
 **Postcondition:** The King piece now can move in 4 directions rather than 2.
-+ **R6.1.7 Winning the Game**
+
++ **R6.1.6 Winning the Game**
 Most games of checkers will end when one user wins the game.
 **Precondition:** The user is playing a game.
 **Action:** The user captures all of their opponent's pieces.
 **Postcondition:** That user wins the game. Victory and defeat messages are appropriately displayed on both clients before they are disconnected from the server.
-+ **R6.1.8 Losing the Game**
+
++ **R6.1.7 Losing the Game**
 Occasionally, a game of checkers cannot be won. In this circumstance, a loser is determined.
 **Precondition:** It is the user's turn.
 **Action:** The user has no valid moves which they can make.
 **Postcondition:** That user loses the game. Victory and defeat messages are appropriately displayed on both clients before they are disconnected from the server.
-+ **R6.1.9 Starting a Rematch**
+
++ **R6.1.8 Starting a Rematch**
 Because the server only supports 2 users playing at a time, those users are disconnected upon the end of the game to allow other users to play. The Reconnect button allows users to requeue for another game after a game is completed.
 **Precondition:** Two users have finished playing a game and have been disconnected from the server.
 **Action:** The user clicks the Reconnect button.
 **Postcondition:** The client attempts to reconnect to the server for another game.
-+ **R6.1.10 Quitting the Game**
+
++ **R6.1.9 Quitting the Game**
 At any point, a player can choose to end the game. If they do, they forfeit the game to their opponent.
 **Precondition:** The user is playing a game
 **Action:** The user quits through the game interface.
