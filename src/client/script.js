@@ -35,7 +35,9 @@ function Client() {
 
 function GUI() {
 	this.gameBoard = new Board();
-	this.splashScreen = document.getElementById("splashscreen");
+	this.splashScreen = document.createElement("DIALOG");
+	this.splashScreen.id = "splashscreen";
+	document.body.appendChild(this.splashScreen);
 	this.splashScreen.close();
 
 	this.display = function(boardState=null) {
@@ -131,6 +133,8 @@ function Board() {
 						var boardObj = document.getElementById("checkers-board").manager;
 						boardObj.clearMoveOptions();
 					};
+				} else {
+					
 				}
 			}
 		}
@@ -295,8 +299,3 @@ function computeDiagonalPath(from, to) {
 
 	}
 }
-
-document.addEventListener("DOMContentLoaded", function() {
-	var gui = new GUI();
-	gui.display();
-});
