@@ -85,12 +85,16 @@ function Board() {
 	}
 
 	this.clearMoveOptions = function() {
-		for (var i=0; i<this.spaces.length; i++) {
-			space[i].node.style.border = "1px solid yellow";
-			space[i].node.style.cursor = "cursor";
-			space[i].node.onclick = function(e) {}; // reset to blank event
+		// console.log("clearing spaces");
+		var keys = Object.keys(this.spaces);
+		for (var i=0; i<keys.length; i++) {
+			this.spaces[keys[i]].node.style.border = "2px solid black";
+			this.spaces[keys[i]].node.style.cursor = "default";
+			this.spaces[keys[i]].node.onclick = function(e) {}; // reset to blank event
 		}
 	}
+
+	this.higlightedSpaces = []; // space IDs of highlihgted spaces
 
 	this.moveOptions = function (spaceId, spaces) {
 		coords = spaceIdToIntCoords(spaceId);
@@ -118,14 +122,14 @@ function Board() {
 				if (spaces[newSpaceId].piece === null) {
 					console.log("piece at "+spaceId+" can move to " + newSpaceId);
 					var spaceNode = document.getElementById("space-"+newSpaceId)
-					//console.log(spaceNode);
 					spaceNode.style.border = "2px solid yellow";
 					spaceNode.style.cursor = "pointer";
-					var clearMovesFunc = this.clearMoveOptions; // save this to use inside closure;
+
 					spaceNode.onclick = function(e) {
 						spaces[spaceId].movePiece(e.target.manager.getSpaceId());
 
-						clearMoveFunc();
+						var boardObj = document.getElementById("checkers-board").manager;
+						boardObj.clearMoveOptions();
 					};
 				}
 			}
@@ -137,7 +141,7 @@ function Board() {
 	 */
 	this.render = function() {
 		var table = document.createElement("TABLE");
-		table.setAttribute("id", "checkers-table");
+		table.setAttribute("id", "checkers-board");
 		// table.setAttribute("border", "1px black");
 		console.log(this.spaces);
 		for (var i=1; i<=8; i++) {
@@ -159,6 +163,10 @@ function Board() {
 			}
 			table.appendChild(tr);
 		}
+
+		table.manager = this;
+		this.node = table;
+
 		return table;
 	}
 }
@@ -190,8 +198,9 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 	this.movePiece = function(toSpaceId) {
 		var newspace = document.getElementById("space-"+toSpaceId);
 		newspace.appendChild(this.piece.node);
-		piece.node.parentManager = newspace.manager;
-		newspace.manager.piece = piece;
+		newspace.manager.piece = this.piece;
+		this.piece.node.parentManager = newspace.manager;
+		this.piece = null;
 	}
 
 	this.render = function() {
