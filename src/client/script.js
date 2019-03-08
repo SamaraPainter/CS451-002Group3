@@ -1,35 +1,36 @@
 function Client() {
 	this.clientIsBlack = true;
+	this.socket = new WebSocket("ws://" + window.location.hostname + ":8081");
 
-	this.joinGame = function() {
-		const http = new XMLhttpRequest();
-		const url='google.com'; // TODO: change placeholder 
-		http.open("GET", url);
-		http.send();
-		http.onreadystatechange = function (e) {
-			var response = JSON.parse(http.responseText);
-			this.clientIsBlack = response.clientIsBlack;
-		}
+	this.socket.onopen = function () {
+		alert("Communication with server established");
 	}
 
-	this.sendMessage = function(msg) {
-		const http = new XMLhttpRequest();
-		const url='google.com'; // TODO: change placeholder 
-		http.open("GET", url);
-		http.send();
-		http.onreadystatechange= function (e) {
-			console.log(http.responseText);
-		}
+	this.socket.onclose = function () {
+		alert("Connection to server lost");
 	}
 
-	this.recieveMessage = function(msg) {
-		const http = new XMLhttpRequest();
-		const url='google.com'; // TODO: change placeholder 
-		http.open("GET", url);
-		http.send();
-		http.onreadystatechange = function (e) {
-			console.log(http.responseText);
+	this.socket.onerror = function (e) {
+		alert("Server crashed...");
+	}
+
+	this.socket.onmessage = function (msg) { // msg.data is a stringified object
+		var data = JSON.parse(msg.data);
+		console.log(msg.data);
+		if (data.gamerunning) {
+			msg.target.close();
+			alert("A game is already in progress...");
+		} else if (data.resigned) {
+			msg.target.close();
+			alert("Your opponent resigned... You win!");
+		} else {
+			alert(msg.data);
 		}
+
+	}
+
+	this.sendMessage = function (msg) {
+		this.socket.send(JSON.stringify(msg));
 	}
 }
 
@@ -37,22 +38,22 @@ function GUI() {
 	this.gameBoard = new Board();
 	this.splashScreen = document.createElement("DIALOG");
 	this.splashScreen.id = "splashscreen";
-	document.body.appendChild(this.splashScreen);
-	this.splashScreen.close();
+	// document.body.appendChild(this.splashScreen);
+	// this.splashScreen.close();
 
-	this.display = function(boardState=null) {
+	this.display = function (boardState = null) {
 		if (this.gameBoard === null) { this.gameBoard = new Board() }
 		document.body.appendChild(this.gameBoard.render());
 		document.body.appendChild(this.splashScreen);
 	}
 
-	this.selectPiece = function(coord) {
+	this.selectPiece = function (coord) {
 
 	}
 }
 
 function isValidSpace(spaceId) {
-	if(spaceId.length > 2) { return false; }
+	if (spaceId.length > 2) { return false; }
 	var intCoords = spaceIdToIntCoords(spaceId);
 	return (
 		(intCoords[0] > 0 && intCoords[0] < 9) &&
@@ -63,36 +64,36 @@ function isValidSpace(spaceId) {
 function Board() {
 	this.spaces = {};
 
-	for (var i=1; i<=8; i++) {
-		for (var j=1; j<=8; j++) {
-			var xPos = intCoordsToSpaceId(i, j)[0]; 
-			var yPos = intCoordsToSpaceId(i, j)[1]; 
+	for (var i = 1; i <= 8; i++) {
+		for (var j = 1; j <= 8; j++) {
+			var xPos = intCoordsToSpaceId(i, j)[0];
+			var yPos = intCoordsToSpaceId(i, j)[1];
 
-			var isDarkSpace = (i+j)%2==0 ? "white" : "grey";
+			var isDarkSpace = (i + j) % 2 == 0 ? "white" : "grey";
 
 			var piece = null;
-			if (yPos === "A" || yPos === "B") { 
+			if (yPos === "A" || yPos === "B") {
 				piece = new Piece(true, false);
 			} else if (yPos === "H" || yPos === "G") {
 				piece = new Piece(false, false);
 			}
 
 			var space = new Space(xPos, yPos, isDarkSpace, piece);
-			this.spaces[xPos+yPos] = space;
+			this.spaces[xPos + yPos] = space;
 		}
 	}
 
-	this.boardState = function() {
+	this.boardState = function () {
 		return this.spaces;
 	}
 
-	this.clearMoveOptions = function() {
+	this.clearMoveOptions = function () {
 		// console.log("clearing spaces");
 		var keys = Object.keys(this.spaces);
-		for (var i=0; i<keys.length; i++) {
+		for (var i = 0; i < keys.length; i++) {
 			this.spaces[keys[i]].node.style.border = "2px solid black";
 			this.spaces[keys[i]].node.style.cursor = "default";
-			this.spaces[keys[i]].node.onclick = function(e) {}; // reset to blank event
+			this.spaces[keys[i]].node.onclick = function (e) { }; // reset to blank event
 		}
 	}
 
@@ -103,12 +104,12 @@ function Board() {
 		var x = coords[0], y = coords[1];
 
 		for (var i = -8; i < 8; i++) {
-			var flips=0;
-			for (var j = i; flips < 2; j=-i) { // flip increment to check both diagonal movement axes
+			var flips = 0;
+			for (var j = i; flips < 2; j = -i) { // flip increment to check both diagonal movement axes
 				flips++;
 
-				var newX = x+i;
-				var newY = y+j;
+				var newX = x + i;
+				var newY = y + j;
 
 				var newSpaceId = intCoordsToSpaceId(newX, newY);
 
@@ -116,25 +117,25 @@ function Board() {
 
 				newSpaceId = intCoordsToSpaceId(newX, newY);
 
-				var isBackwardsSpace = spaces[spaceId].piece.isBlack ? (newY < y) : (newY > y) ;
+				var isBackwardsSpace = spaces[spaceId].piece.isBlack ? (newY < y) : (newY > y);
 				if (isBackwardsSpace && !spaces[spaceId].piece.isKing) { // only allow backwards move if king
 					continue;
 				}
 
 				if (spaces[newSpaceId].piece === null) {
-					console.log("piece at "+spaceId+" can move to " + newSpaceId);
-					var spaceNode = document.getElementById("space-"+newSpaceId)
+					console.log("piece at " + spaceId + " can move to " + newSpaceId);
+					var spaceNode = document.getElementById("space-" + newSpaceId)
 					spaceNode.style.border = "2px solid yellow";
 					spaceNode.style.cursor = "pointer";
 
-					spaceNode.onclick = function(e) {
+					spaceNode.onclick = function (e) {
 						spaces[spaceId].movePiece(e.target.manager.getSpaceId());
 
 						var boardObj = document.getElementById("checkers-board").manager;
 						boardObj.clearMoveOptions();
 					};
 				} else {
-					
+
 				}
 			}
 		}
@@ -143,23 +144,23 @@ function Board() {
 	/*
 	 * Board is represented as a table
 	 */
-	this.render = function() {
+	this.render = function () {
 		var table = document.createElement("TABLE");
 		table.setAttribute("id", "checkers-board");
 		// table.setAttribute("border", "1px black");
 		console.log(this.spaces);
-		for (var i=1; i<=8; i++) {
+		for (var i = 1; i <= 8; i++) {
 			var tr = document.createElement("TR");
-			tr.setAttribute("id", "row-"+i.toString());
-			for (var j=1; j<=8; j++) {
+			tr.setAttribute("id", "row-" + i.toString());
+			for (var j = 1; j <= 8; j++) {
 				var spaceId = intCoordsToSpaceId(i, j);
 				var spaceNode = this.spaces[spaceId].render();
 				if (spaceNode.children.length === 1) {
 					var pieceNode = spaceNode.children[0];
 					// proxy this.moveOptions and this.spaces because of closure
-					var moveOptions = this.moveOptions; 
+					var moveOptions = this.moveOptions;
 					var spaces = this.spaces;
-					pieceNode.onclick = function(e) {
+					pieceNode.onclick = function (e) {
 						moveOptions(e.target.parentManager.getSpaceId(), spaces);
 					}
 				}
@@ -176,49 +177,49 @@ function Board() {
 }
 
 function intCoordsToSpaceId(i, j) {
-	return i.toString() + String.fromCharCode(j+64);
+	return i.toString() + String.fromCharCode(j + 64);
 }
 
 function spaceIdToIntCoords(spaceId) {
 	var i = spaceId[0], j = spaceId[1];
-	return [parseInt(i), j.charCodeAt(0)-64];
+	return [parseInt(i), j.charCodeAt(0) - 64];
 }
 
-function Space(xPos, yPos, isDarkSpace, piece=null) {
+function Space(xPos, yPos, isDarkSpace, piece = null) {
 	this.xPos = xPos;
 	this.yPos = yPos;
 	this.isDarkSpace = isDarkSpace;
 	this.piece = piece;
 
-	this.getSpaceId = function() {
-		return this.xPos+this.yPos;
+	this.getSpaceId = function () {
+		return this.xPos + this.yPos;
 	}
 
-	this.validate = function() {
+	this.validate = function () {
 		// TODO: fix stub
 		return true;
 	}
 
-	this.movePiece = function(toSpaceId) {
-		var newspace = document.getElementById("space-"+toSpaceId);
+	this.movePiece = function (toSpaceId) {
+		var newspace = document.getElementById("space-" + toSpaceId);
 		newspace.appendChild(this.piece.node);
 		newspace.manager.piece = this.piece;
 		this.piece.node.parentManager = newspace.manager;
 		this.piece = null;
 	}
 
-	this.render = function() {
+	this.render = function () {
 		var td = document.createElement("TD");
 
 		var spaceId = this.getSpaceId();
 		var coords = spaceIdToIntCoords(spaceId);
 
-		var bgColor = (coords[0]+coords[1])%2==0 ? "white" : "grey";
-		var color = (coords[0]+coords[1])%2==0 ? "grey" : "white";
-		td.setAttribute("style", "background-color:"+bgColor+"; color:"+color+"; height:20px; width:20px; border: 2px solid black;");
+		var bgColor = (coords[0] + coords[1]) % 2 == 0 ? "white" : "grey";
+		var color = (coords[0] + coords[1]) % 2 == 0 ? "grey" : "white";
+		td.setAttribute("style", "background-color:" + bgColor + "; color:" + color + "; height:20px; width:20px; border: 2px solid black;");
 
-		td.setAttribute("id", "space-"+spaceId[0]+spaceId[1]);
-		td.innerHTML= "<div> </div>";
+		td.setAttribute("id", "space-" + spaceId[0] + spaceId[1]);
+		td.innerHTML = "<div> </div>";
 
 		if (this.piece !== null) {
 			td.innerHTML = "";
@@ -240,17 +241,17 @@ function Piece(isBlack, isKing) {
 	this.isBlack = isBlack;
 	this.isKing = isKing;
 
-	this.moveTo = function(toSpaceIr) {
+	this.moveTo = function (toSpaceIr) {
 	}
 
-	this.remove = function() {
+	this.remove = function () {
 	}
 
-	this.render = function() {
+	this.render = function () {
 		var piece = document.createElement("div");
 
 		piece.innerHTML = "&#x25C9;"; // piece is represented as circle HTML entity
-		if (this.isKing) { 
+		if (this.isKing) {
 			piece.innerHTML = "&#x1F451;"; // king piece is represented as crown HTML entity
 		}
 
@@ -275,16 +276,16 @@ function Move(startIndex, space) {
 
 function computeDiagonalPath(from, to) {
 	if (from.length !== 2 || to.length !== 2) { return []; } // improper cell formatting
-		
+
 	var fromRow = String.toCharCode(from[0].toLowerCase()) - 65;
-	var fromCol; 
-	try{ fromCol = parseInt(from[1]); } 
-   catch (e) { console.error("could not parse '"+from[1]+"' to int"); return []; }
+	var fromCol;
+	try { fromCol = parseInt(from[1]); }
+	catch (e) { console.error("could not parse '" + from[1] + "' to int"); return []; }
 
 	var toRow = String.toCharCode(to[0].toLowerCase()) - 65;
 	var toCol;
-	try{ toCol = parseInt(to[1]); } 
-   catch (e) { console.error("could not parse '"+to[1]+"' to int"); return []; }
+	try { toCol = parseInt(to[1]); }
+	catch (e) { console.error("could not parse '" + to[1] + "' to int"); return []; }
 
 	// handle cases where path can't be drawn
 	if (
@@ -295,7 +296,7 @@ function computeDiagonalPath(from, to) {
 	var incr = (fromRow > toRow) && (fromCol > toCol) ? 1 : -1;
 
 	var paths = [];
-	while((fromRow > toRow) && (fromCol > toCol)) {
+	while ((fromRow > toRow) && (fromCol > toCol)) {
 
 	}
 }
