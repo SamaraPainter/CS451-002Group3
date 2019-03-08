@@ -95,49 +95,70 @@ function Board() {
 			this.spaces[keys[i]].node.onclick = function(e) {}; // reset to blank event
 		}
 	}
-
-	this.higlightedSpaces = []; // space IDs of highlihgted spaces
-
-	this.moveOptions = function (spaceId, spaces) {
+	
+	// passes in the spaceId of the starting space, the current spaces on the board and,
+	// if the moveOptions are being recorderd on a jump, return the props of the jumping piece
+	this.moveOptions = function (spaceId, spaces, jumpPieceProps=null) {
 		coords = spaceIdToIntCoords(spaceId);
 		var x = coords[0], y = coords[1];
 
-		for (var i = -8; i < 8; i++) {
+		var moves = [];
+
+		for (var i = -1; i <= 1; i++) {
+			if (i === 0) { continue; }
+
 			var flips=0;
 			for (var j = i; flips < 2; j=-i) { // flip increment to check both diagonal movement axes
 				flips++;
 
-				var newX = x+i;
-				var newY = y+j;
-
+				var newX = x+i; var newY = y+j;
 				var newSpaceId = intCoordsToSpaceId(newX, newY);
-
 				if (!isValidSpace(newSpaceId)) { continue; }
+				// newSpaceId = intCoordsToSpaceId(newX, newY);
 
-				newSpaceId = intCoordsToSpaceId(newX, newY);
-
-				var isBackwardsSpace = spaces[spaceId].piece.isBlack ? (newY < y) : (newY > y) ;
-				if (isBackwardsSpace && !spaces[spaceId].piece.isKing) { // only allow backwards move if king
-					continue;
+				var isBlack, isKing;
+				if (jumpPieceProps === null) { // don't bother checking jumpProps is null
+					isBlack = spaces[spaceId].piece.isBlack;
+					isKing = spaces[spaceId].piece.isKing;
+				} else {
+					isKing = jumpPieceProps.isKing;
+					isBlack = jumpPieceProps.isBlack;
 				}
 
-				if (spaces[newSpaceId].piece === null) {
-					console.log("piece at "+spaceId+" can move to " + newSpaceId);
-					var spaceNode = document.getElementById("space-"+newSpaceId)
-					spaceNode.style.border = "2px solid yellow";
-					spaceNode.style.cursor = "pointer";
+				var isBackwardsSpace = isBlack ? (newY < y) : (newY > y) ;
+				if (isBackwardsSpace && !isKing) { continue; } // only allow backwards move if king
 
-					spaceNode.onclick = function(e) {
-						spaces[spaceId].movePiece(e.target.manager.getSpaceId());
+				var captureAllowed = !!spaces[newSpaceId].piece ? (spaces[newSpaceId].piece.isBlack && !isBlack) || (!spaces[newSpaceId].piece.isBlack && isBlack) : false;
+				if (spaces[newSpaceId].piece === null && jumpPieceProps === null) {  // only allow regular move if not inside jump
 
+					var move = new Move(); // (spaces[spaceId], [spaces[newSpaceId]]);
+					move.addSteps([new MoveStep(spaces[newSpaceId], spaces[spaceId], null)]);
+					spaces[newSpaceId].highlightMove(spaces[spaceId], move);
+
+					moves.push(move);
+				} else if (captureAllowed){
+					var jumpSpaceId = intCoordsToSpaceId(newX+i, newY+j);
+					if (!isValidSpace(jumpSpaceId)) { continue; }
+					if(spaces[jumpSpaceId].piece === null) {
 						var boardObj = document.getElementById("checkers-board").manager;
-						boardObj.clearMoveOptions();
-					};
-				} else {
-					
+						var jumpMoves = boardObj.moveOptions(jumpSpaceId, spaces, {isBlack: isBlack, isKing: isKing});
+
+						var move = new Move();
+						move.addSteps([new MoveStep(spaces[jumpSpaceId], spaces[spaceId], spaces[newSpaceId].piece)]);
+
+						for (var k = 0; k < jumpMoves.length; k++) {
+							move.addSteps(jumpMoves[k].moveSteps);
+						}
+
+						spaces[jumpSpaceId].highlightMove(spaces[spaceId], move);
+						
+						moves.push(move);
+					}
 				}
 			}
 		}
+
+		return moves; 
 	}
 
 	/*
@@ -175,15 +196,6 @@ function Board() {
 	}
 }
 
-function intCoordsToSpaceId(i, j) {
-	return i.toString() + String.fromCharCode(j+64);
-}
-
-function spaceIdToIntCoords(spaceId) {
-	var i = spaceId[0], j = spaceId[1];
-	return [parseInt(i), j.charCodeAt(0)-64];
-}
-
 function Space(xPos, yPos, isDarkSpace, piece=null) {
 	this.xPos = xPos;
 	this.yPos = yPos;
@@ -199,12 +211,25 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 		return true;
 	}
 
-	this.movePiece = function(toSpaceId) {
-		var newspace = document.getElementById("space-"+toSpaceId);
+	this.movePiece = function(toSpace) {
+		// var newspace = document.getElementById("space-"+toSpaceId);
+		var newspace = toSpace.node;
 		newspace.appendChild(this.piece.node);
 		newspace.manager.piece = this.piece;
 		this.piece.node.parentManager = newspace.manager;
 		this.piece = null;
+	}
+
+	this.highlightMove = function(fromSpace, move) {
+		this.node.style.border = "2px solid yellow";
+		this.node.style.cursor = "pointer";
+
+		this.node.onclick = function(e) {
+			var boardObj = document.getElementById("checkers-board").manager;
+			boardObj.clearMoveOptions();
+
+			move.makeMove();
+		};
 	}
 
 	this.render = function() {
@@ -236,14 +261,20 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 }
 
 function Piece(isBlack, isKing) {
-
 	this.isBlack = isBlack;
 	this.isKing = isKing;
 
-	this.moveTo = function(toSpaceIr) {
+	this.remove = function() {
+		this.node.remove();
 	}
 
-	this.remove = function() {
+	this.makeKing = function() {
+		// king piece is represented by HTMl entity
+		if (isBlack) {
+			this.node.innerHTML = "&#9818;"; 
+		} else {
+			this.node.innerHTML = "&#9812;";
+		}
 	}
 
 	this.render = function() {
@@ -269,33 +300,44 @@ function Piece(isBlack, isKing) {
 
 }
 
-function Move(startIndex, space) {
-
+function MoveStep(to, from, captured) {
+	this.to = to;
+	this.from = from;
+	this.captured = captured;
 }
 
-function computeDiagonalPath(from, to) {
-	if (from.length !== 2 || to.length !== 2) { return []; } // improper cell formatting
-		
-	var fromRow = String.toCharCode(from[0].toLowerCase()) - 65;
-	var fromCol; 
-	try{ fromCol = parseInt(from[1]); } 
-   catch (e) { console.error("could not parse '"+from[1]+"' to int"); return []; }
+function Move() { 
+	this.moveSteps = [];
 
-	var toRow = String.toCharCode(to[0].toLowerCase()) - 65;
-	var toCol;
-	try{ toCol = parseInt(to[1]); } 
-   catch (e) { console.error("could not parse '"+to[1]+"' to int"); return []; }
-
-	// handle cases where path can't be drawn
-	if (
-		fromRow === toRow || fromCol === toCol
-		/* TODO: add other identified edge-cases */
-	) { return []; }
-
-	var incr = (fromRow > toRow) && (fromCol > toCol) ? 1 : -1;
-
-	var paths = [];
-	while((fromRow > toRow) && (fromCol > toCol)) {
-
+	this.addSteps = function(steps) {
+		for(var i = 0; i < steps.length; i++) {
+			this.moveSteps.push(steps[i]);
+		}
 	}
+
+	this.makeMove = function() {
+		for (var i = 0; i < this.moveSteps.length; i++) {
+			var from = this.moveSteps[i].from;
+			var to = this.moveSteps[i].to;
+			from.movePiece(to);
+			if (!!this.moveSteps[i].captured) {
+				this.moveSteps[i].captured.remove();
+			}
+
+			// check if piece has reached the other side after the move and king it
+			var y = spaceIdToIntCoords(to.getSpaceId())[1];
+			if ((y == 8 && to.piece.isBlack) || (y == 1 && !to.piece.isBlack)) {
+				to.piece.makeKing();
+			}
+		}
+	}
+}
+
+function intCoordsToSpaceId(i, j) {
+	return i.toString() + String.fromCharCode(j+64);
+}
+
+function spaceIdToIntCoords(spaceId) {
+	var i = spaceId[0], j = spaceId[1];
+	return [parseInt(i), j.charCodeAt(0)-64];
 }
