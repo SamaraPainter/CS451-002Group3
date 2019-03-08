@@ -1,23 +1,35 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
-    <title>Checkers</title>
+	<title>Checkers</title>
 
-	 <script type="text/javascript" src="script.js"> </script> 
+	<script type="text/javascript" src="script.js"> </script>
 
-	 <script>
-		document.addEventListener("DOMContentLoaded", function() {
+	<script>
+		var client;
+		var sendTestMsg = function (inp) {
+			client.sendMessage({ message: inp.value });
+		}
+		document.addEventListener("DOMContentLoaded", function () {
 			var gui = new GUI();
 			gui.display();
+			client = new Client();
+
 		});
 	</script>
 </head>
+
 <body class="">
-	 <div>
-    <h1>
-		 Checkers
-    </h1>
+	<p>
+		Test Message:
+		<input type="text" onchange="sendTestMsg(this)">
+	</p>
+	<h1>
+		Checkers
+	</h1>
 
-</body></html>
+</body>
 
+</html>
