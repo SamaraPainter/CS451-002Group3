@@ -28,12 +28,22 @@ var onPlayerClose = function (event) {
     if (players[0] === event.target) {
         players[0] = null;
         if (players[1]) {
-            players[1].send(JSON.stringify({ resigned: true }));
+            players[1].send(JSON.stringify({ resigned: true }), (error) => {
+                console.log('Client 0 connection unexpectedly closed');
+                if (error) {
+                    console.log("ERROR: " + error.message);
+                }
+            });
         }
     } else {
         players[1] = null;
         if (players[0]) {
-            players[0].send(JSON.stringify({ resigned: true }));
+            players[0].send(JSON.stringify({ resigned: true }), (error) => {
+                console.log('Client 1 connection unexpectedly closed');
+                if (error) {
+                    console.log("ERROR: " + error.message);
+                }
+            });
         }
     }
 }
@@ -83,7 +93,6 @@ wss.on('connection', function (client) {
     if (!joinGame(client)) { // a game is already in progress
         client.send(JSON.stringify({ gamerunning: true }));
     }
-
 });
 
 
