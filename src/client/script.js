@@ -4,6 +4,8 @@ var clientsTurn = false;
 function Client() {
 	this.socket = new WebSocket("ws://" + window.location.hostname + ":8081");
 
+	this.myTurn = false;
+
 	this.socket.onopen = function () {
 		alert("Communication with server established");
 	}
@@ -27,7 +29,7 @@ function Client() {
 			console.log("matched !");
 			clientIsBlack = data.isBlack;
 			if(clientIsBlack) { 
-				clientsTurn = true; 
+				client.myTurn = true;
 				document.getElementById("table-overlay").style.display = "block";
 				document.getElementById("color-indicator").innerHTML += "Black";
 				document.getElementById("color-indicator").style.backgroundColor = "black";
@@ -37,14 +39,10 @@ function Client() {
 				document.getElementById("color-indicator").style.backgroundColor = "red";
 			}
 			var pieceNodes = document.querySelectorAll(".piece");
-			for(var i = 0; i < pieceNodes.length; i++) {
+			for (var i = 0; i < pieceNodes.length; i++) {
 				pieceNodes[i].onclick = function (e) {
 					console.log("client is black? " + clientIsBlack)
 					if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
-						if (!clientsTurn) {
-							alert("not your turn! wait for opponent");
-							return;
-						}
 						client.gui.gameBoard.moveOptions(e.target.parentManager.getSpaceId(), client.gui.gameBoard.spaces);
 						e.target.style.cursor = "pointer";
 					}
@@ -55,10 +53,11 @@ function Client() {
 			msg.target.close();
 			alert("Your opponent resigned... You win!");
 		} else if (data.pieceCaptured) {
+			client.myTurn = !client.myTurn;
 			msg.target.close();
 			alert("a piece was captured");
 		} else if (data.opponentMoved) {
-			clientsTurn = true;
+			client.myTurn = !client.myTurn;
 			document.getElementById("table-overlay").style.display = "block";
 			var m = new Move();
 			m.fromJson(data);
@@ -80,7 +79,7 @@ function Client() {
 
 	this.gui = null;
 
-	this.getGUI = function() {
+	this.getGUI = function () {
 		if (this.gui === null) {
 			this.gui = new GUI();
 		}
@@ -151,9 +150,9 @@ function Board() {
 
 			var piece = null;
 			if (yPos === "A" || yPos === "B") {
-				piece = new Piece(true, false, i+j);
+				piece = new Piece(true, false, i + j);
 			} else if (yPos === "H" || yPos === "G") {
-				piece = new Piece(false, false, i+j);
+				piece = new Piece(false, false, i + j);
 			}
 
 			var space = new Space(xPos, yPos, isDarkSpace, piece);
@@ -174,10 +173,10 @@ function Board() {
 			this.spaces[keys[i]].node.onclick = function (e) { }; // reset to blank event
 		}
 	}
-	
+
 	// passes in the spaceId of the starting space, the current spaces on the board and,
 	// if the moveOptions are being recorderd on a jump, return the props of the jumping piece
-	this.moveOptions = function (spaceId, spaces, jumpPieceProps=null) {
+	this.moveOptions = function (spaceId, spaces, jumpPieceProps = null) {
 		coords = spaceIdToIntCoords(spaceId);
 		var x = coords[0], y = coords[1];
 
@@ -186,11 +185,11 @@ function Board() {
 		for (var i = -1; i <= 1; i++) {
 			if (i === 0) { continue; }
 
-			var flips=0;
-			for (var j = i; flips < 2; j=-i) { // flip increment to check both diagonal movement axes
+			var flips = 0;
+			for (var j = i; flips < 2; j = -i) { // flip increment to check both diagonal movement axes
 				flips++;
 
-				var newX = x+i; var newY = y+j;
+				var newX = x + i; var newY = y + j;
 				var newSpaceId = intCoordsToSpaceId(newX, newY);
 				if (!isValidSpace(newSpaceId)) { continue; }
 				// newSpaceId = intCoordsToSpaceId(newX, newY);
@@ -204,7 +203,7 @@ function Board() {
 					isBlack = jumpPieceProps.isBlack;
 				}
 
-				var isBackwardsSpace = isBlack ? (newY < y) : (newY > y) ;
+				var isBackwardsSpace = isBlack ? (newY < y) : (newY > y);
 				if (isBackwardsSpace && !isKing) { continue; } // only allow backwards move if king
 
 				var captureAllowed = !!spaces[newSpaceId].piece ? (spaces[newSpaceId].piece.isBlack && !isBlack) || (!spaces[newSpaceId].piece.isBlack && isBlack) : false;
@@ -215,12 +214,12 @@ function Board() {
 					spaces[newSpaceId].highlightMove(spaces[spaceId], move);
 
 					moves.push(move);
-				} else if (captureAllowed){
-					var jumpSpaceId = intCoordsToSpaceId(newX+i, newY+j);
+				} else if (captureAllowed) {
+					var jumpSpaceId = intCoordsToSpaceId(newX + i, newY + j);
 					if (!isValidSpace(jumpSpaceId)) { continue; }
-					if(spaces[jumpSpaceId].piece === null) {
+					if (spaces[jumpSpaceId].piece === null) {
 						var boardObj = document.getElementById("checkers-board").manager;
-						var jumpMoves = boardObj.moveOptions(jumpSpaceId, spaces, {isBlack: isBlack, isKing: isKing});
+						var jumpMoves = boardObj.moveOptions(jumpSpaceId, spaces, { isBlack: isBlack, isKing: isKing });
 
 						var move = new Move();
 						move.addSteps([new MoveStep(spaces[jumpSpaceId], spaces[spaceId], spaces[newSpaceId].piece)]);
@@ -230,14 +229,14 @@ function Board() {
 						}
 
 						spaces[jumpSpaceId].highlightMove(spaces[spaceId], move);
-						
+
 						moves.push(move);
 					}
 				}
 			}
 		}
 
-		return moves; 
+		return moves;
 	}
 
 	/*
@@ -278,13 +277,13 @@ function Board() {
 	}
 }
 
-function Space(xPos, yPos, isDarkSpace, piece=null) {
+function Space(xPos, yPos, isDarkSpace, piece = null) {
 	this.xPos = xPos;
 	this.yPos = yPos;
 	this.isDarkSpace = isDarkSpace;
 	this.piece = piece;
 
-	this.toJson = function() {
+	this.toJson = function () {
 		return {
 			xPos: this.xPos,
 			yPos: this.yPos,
@@ -293,7 +292,7 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 		}
 	}
 
-	this.fromJson = function(obj) {
+	this.fromJson = function (obj) {
 		this.xPos = obj.xPos;
 		this.yPos = obj.yPos;
 		this.isDarkSpace = obj.isDarkSpace;
@@ -308,8 +307,8 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 		return true;
 	}
 
-	this.movePiece = function(toSpace) {
-		var newspace = document.getElementById("space-"+toSpace.getSpaceId());
+	this.movePiece = function (toSpace) {
+		var newspace = document.getElementById("space-" + toSpace.getSpaceId());
 		// var newspace = toSpace.node;
 		newspace.appendChild(this.piece.node);
 		newspace.manager.piece = this.piece;
@@ -317,20 +316,24 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 		this.piece = null;
 	}
 
-	this.highlightMove = function(fromSpace, move) {
+	this.highlightMove = function (fromSpace, move) {
+		if (!client.myTurn) {
+			return;
+		}
 		this.node.style.border = "2px solid yellow";
 		this.node.style.cursor = "pointer";
 
-		this.node.onclick = function(e) {
+		this.node.onclick = function (e) {
 			var boardObj = document.getElementById("checkers-board").manager;
 			boardObj.clearMoveOptions();
 
 			move.makeMove();
 			client.sendMessage(move.toJson());
+			client.myTurn = !client.myTurn;
 		};
 	}
 
-	this.render = function() {
+	this.render = function () {
 		var td = document.createElement("TD");
 
 		var spaceId = this.getSpaceId();
@@ -363,15 +366,15 @@ function Piece(isBlack, isKing, id) {
 	this.isKing = isKing;
 	this.id = id;
 
-	this.remove = function() {
+	this.remove = function () {
 		this.node.remove();
 		this.node.parentManager.piece = null;
 	}
 
-	this.makeKing = function() {
+	this.makeKing = function () {
 		// king piece is represented by HTMl entity
 		if (isBlack) {
-			this.node.innerHTML = "&#9818;"; 
+			this.node.innerHTML = "&#9818;";
 		} else {
 			this.node.innerHTML = "&#9812;";
 		}
@@ -405,9 +408,9 @@ function Piece(isBlack, isKing, id) {
 		return piece;
 	}
 
-	this.toJson = function() {
+	this.toJson = function () {
 		return {
-			isBlack: this.isBlack, 
+			isBlack: this.isBlack,
 			isKing: this.isKing,
 			id: this.id,
 		}
@@ -428,16 +431,16 @@ function MoveStep(to, from, captured) {
 	}
 }
 
-function Move() { 
+function Move() {
 	this.moveSteps = [];
 
-	this.addSteps = function(steps) {
-		for(var i = 0; i < steps.length; i++) {
+	this.addSteps = function (steps) {
+		for (var i = 0; i < steps.length; i++) {
 			this.moveSteps.push(steps[i]);
 		}
 	}
 
-	this.makeMove = function() {
+	this.makeMove = function () {
 		for (var i = 0; i < this.moveSteps.length; i++) {
 			var from = this.moveSteps[i].from;
 			var to = this.moveSteps[i].to;
@@ -457,7 +460,7 @@ function Move() {
 		}
 	}
 
-	this.toJson = function() {
+	this.toJson = function () {
 		var obj = { steps: [], opponentMoved: true };
 		for (var i = 0; i < this.moveSteps.length; i++) {
 			obj.steps.push(this.moveSteps[i].toJson());
@@ -465,7 +468,7 @@ function Move() {
 		return obj;
 	}
 
-	this.fromJson = function(obj) {
+	this.fromJson = function (obj) {
 		for (var i = 0; i < obj.steps.length; i++) {
 			var toSpaceId = obj.steps[i].to.xPos + obj.steps[i].to.yPos;
 			var to = document.getElementById("space-" + toSpaceId).manager;
@@ -484,10 +487,10 @@ function Move() {
 }
 
 function intCoordsToSpaceId(i, j) {
-	return i.toString() + String.fromCharCode(j+64);
+	return i.toString() + String.fromCharCode(j + 64);
 }
 
 function spaceIdToIntCoords(spaceId) {
 	var i = spaceId[0], j = spaceId[1];
-	return [parseInt(i), j.charCodeAt(0)-64];
+	return [parseInt(i), j.charCodeAt(0) - 64];
 }
