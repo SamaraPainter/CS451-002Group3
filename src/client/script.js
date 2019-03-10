@@ -1,6 +1,9 @@
+var clientIsBlack = true;
+
 function Client() {
-	this.clientIsBlack = true;
 	this.socket = new WebSocket("ws://" + window.location.hostname + ":8081");
+
+	this.clientsTurn = false;
 
 	this.socket.onopen = function () {
 		alert("Communication with server established");
@@ -20,9 +23,44 @@ function Client() {
 		if (data.gamerunning) {
 			msg.target.close();
 			alert("A game is already in progress...");
+		} else if (data.matched) {
+			console.log("matched !");
+			clientIsBlack = data.isBlack;
+			if(clientIsBlack) { 
+				this.clientsTurn = true; 
+				document.getElementById("color-indicator").innerHTML += "Black";
+				document.getElementById("color-indicator").style.backgroundColor = "black";
+			} else {
+				document.getElementById("color-indicator").innerHTML += "Red";
+				document.getElementById("color-indicator").style.backgroundColor = "red";
+			}
+			var pieceNodes = document.querySelectorAll(".piece");
+			for(var i = 0; i < pieceNodes.length; i++) {
+				pieceNodes[i].onclick = function (e) {
+					console.log("client is black? " + clientIsBlack)
+					if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
+						// if (!client.clientsTurn) {
+						// 	alert("not your turn! wait for opponent");
+						// 	return;
+						// }
+						client.gui.gameBoard.moveOptions(e.target.parentManager.getSpaceId(), client.gui.gameBoard.spaces);
+						e.target.style.cursor = "pointer";
+					}
+				}
+			}
+			alert(msg.data)
 		} else if (data.resigned) {
 			msg.target.close();
 			alert("Your opponent resigned... You win!");
+		} else if (data.pieceCaptured) {
+			msg.target.close();
+			alert("a piece was captured");
+		} else if (data.opponentMoved) {
+			this.clientsTurn = true;
+			var m = new Move();
+			m.fromJson(data);
+			console.log(m);
+			m.makeMove();
 		} else {
 			alert(msg.data);
 		}
@@ -31,6 +69,15 @@ function Client() {
 
 	this.sendMessage = function (msg) {
 		this.socket.send(JSON.stringify(msg));
+	}
+
+	this.gui = null;
+
+	this.getGUI = function() {
+		if (this.gui === null) {
+			this.gui = new GUI();
+		}
+		return this.gui;
 	}
 }
 
@@ -47,8 +94,12 @@ function GUI() {
 		document.body.appendChild(this.splashScreen);
 	}
 
-	this.selectPiece = function (coord) {
-
+	this.updateScore = function (pieceVal, isBlack) {
+		if (isBlack) {
+			document.getElementById("reds-score").innerHTML += pieceVal;
+		} else {
+			document.getElementById("blacks-score").innerHTML += pieceVal;
+		}
 	}
 }
 
@@ -73,9 +124,9 @@ function Board() {
 
 			var piece = null;
 			if (yPos === "A" || yPos === "B") {
-				piece = new Piece(true, false);
+				piece = new Piece(true, false, i+j);
 			} else if (yPos === "H" || yPos === "G") {
-				piece = new Piece(false, false);
+				piece = new Piece(false, false, i+j);
 			}
 
 			var space = new Space(xPos, yPos, isDarkSpace, piece);
@@ -182,7 +233,10 @@ function Board() {
 					var moveOptions = this.moveOptions;
 					var spaces = this.spaces;
 					pieceNode.onclick = function (e) {
-						moveOptions(e.target.parentManager.getSpaceId(), spaces);
+						console.log("client is black? " + clientIsBlack)
+						if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
+							moveOptions(e.target.parentManager.getSpaceId(), spaces);
+						}
 					}
 				}
 				tr.appendChild(spaceNode);
@@ -203,6 +257,21 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 	this.isDarkSpace = isDarkSpace;
 	this.piece = piece;
 
+	this.toJson = function() {
+		return {
+			xPos: this.xPos,
+			yPos: this.yPos,
+			isDarkSpace: this.isDarkSpace,
+			piece: !!this.piece ? this.piece.toJson() : null
+		}
+	}
+
+	this.fromJson = function(obj) {
+		this.xPos = obj.xPos;
+		this.yPos = obj.yPos;
+		this.isDarkSpace = obj.isDarkSpace;
+	}
+
 	this.getSpaceId = function () {
 		return this.xPos + this.yPos;
 	}
@@ -213,8 +282,8 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 	}
 
 	this.movePiece = function(toSpace) {
-		// var newspace = document.getElementById("space-"+toSpaceId);
-		var newspace = toSpace.node;
+		var newspace = document.getElementById("space-"+toSpace.getSpaceId());
+		// var newspace = toSpace.node;
 		newspace.appendChild(this.piece.node);
 		newspace.manager.piece = this.piece;
 		this.piece.node.parentManager = newspace.manager;
@@ -230,6 +299,7 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 			boardObj.clearMoveOptions();
 
 			move.makeMove();
+			client.sendMessage(move.toJson());
 		};
 	}
 
@@ -261,12 +331,14 @@ function Space(xPos, yPos, isDarkSpace, piece=null) {
 
 }
 
-function Piece(isBlack, isKing) {
+function Piece(isBlack, isKing, id) {
 	this.isBlack = isBlack;
 	this.isKing = isKing;
+	this.id = id;
 
 	this.remove = function() {
 		this.node.remove();
+		this.node.parentManager.piece = null;
 	}
 
 	this.makeKing = function() {
@@ -276,6 +348,7 @@ function Piece(isBlack, isKing) {
 		} else {
 			this.node.innerHTML = "&#9812;";
 		}
+		this.isKing = true;
 	}
 
 	this.render = function () {
@@ -291,7 +364,13 @@ function Piece(isBlack, isKing) {
 			piece.style.color = "black";
 		}
 
-		piece.style.cursor = "pointer";
+		piece.id = "piece-" + this.id;
+
+		if (clientIsBlack == this.isBlack) {
+			piece.style.cursor = "pointer";
+		}
+
+		piece.classList.add("piece");
 
 		piece.manager = this;
 		this.node = piece;
@@ -299,12 +378,27 @@ function Piece(isBlack, isKing) {
 		return piece;
 	}
 
+	this.toJson = function() {
+		return {
+			isBlack: this.isBlack, 
+			isKing: this.isKing,
+			id: this.id,
+		}
+	}
 }
 
 function MoveStep(to, from, captured) {
 	this.to = to;
 	this.from = from;
 	this.captured = captured;
+
+	this.toJson = function () {
+		return {
+			to: this.to.toJson(),
+			from: this.from.toJson(),
+			captured: !!this.captured ? this.captured.toJson() : null
+		};
+	}
 }
 
 function Move() { 
@@ -323,6 +417,9 @@ function Move() {
 			from.movePiece(to);
 			if (!!this.moveSteps[i].captured) {
 				this.moveSteps[i].captured.remove();
+				var pieceVal = this.moveSteps[i].captured.node.innerHTML;
+				var pieceIsBlack = this.moveSteps[i].captured.isBlack;
+				client.gui.updateScore(pieceVal, pieceIsBlack);
 			}
 
 			// check if piece has reached the other side after the move and king it
@@ -330,6 +427,31 @@ function Move() {
 			if ((y == 8 && to.piece.isBlack) || (y == 1 && !to.piece.isBlack)) {
 				to.piece.makeKing();
 			}
+		}
+	}
+
+	this.toJson = function() {
+		var obj = { steps: [], opponentMoved: true };
+		for (var i = 0; i < this.moveSteps.length; i++) {
+			obj.steps.push(this.moveSteps[i].toJson());
+		}
+		return obj;
+	}
+
+	this.fromJson = function(obj) {
+		for (var i = 0; i < obj.steps.length; i++) {
+			var toSpaceId = obj.steps[i].to.xPos + obj.steps[i].to.yPos;
+			var to = document.getElementById("space-" + toSpaceId).manager;
+
+			var fromSpaceId = obj.steps[i].from.xPos + obj.steps[i].from.yPos;
+			var from = document.getElementById("space-" + fromSpaceId).manager;
+
+			// var captured = !!obj.steps[i].captured ? new Piece(obj.steps[i].captured.isBlack, obj.steps[i].captured.isKing) : null;
+
+			var captured = !!obj.steps[i].captured ? document.getElementById("piece-" + obj.steps[i].captured.id).manager : null;
+
+			var s = new MoveStep(to, from, captured);
+			this.moveSteps.push(s);
 		}
 	}
 }
