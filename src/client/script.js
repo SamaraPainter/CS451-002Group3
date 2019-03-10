@@ -1,9 +1,8 @@
 var clientIsBlack = true;
+var clientsTurn = false;
 
 function Client() {
 	this.socket = new WebSocket("ws://" + window.location.hostname + ":8081");
-
-	this.clientsTurn = false;
 
 	this.socket.onopen = function () {
 		alert("Communication with server established");
@@ -20,6 +19,7 @@ function Client() {
 	this.socket.onmessage = function (msg) { // msg.data is a stringified object
 		var data = JSON.parse(msg.data);
 		console.log(msg.data);
+		clientsTurn = msg.currPlayerIsBlack === clientIsBlack;
 		if (data.gamerunning) {
 			msg.target.close();
 			alert("A game is already in progress...");
@@ -27,10 +27,12 @@ function Client() {
 			console.log("matched !");
 			clientIsBlack = data.isBlack;
 			if(clientIsBlack) { 
-				this.clientsTurn = true; 
+				clientsTurn = true; 
+				document.getElementById("table-overlay").style.display = "block";
 				document.getElementById("color-indicator").innerHTML += "Black";
 				document.getElementById("color-indicator").style.backgroundColor = "black";
 			} else {
+				document.getElementById("table-overlay").style.display = "none";
 				document.getElementById("color-indicator").innerHTML += "Red";
 				document.getElementById("color-indicator").style.backgroundColor = "red";
 			}
@@ -39,10 +41,10 @@ function Client() {
 				pieceNodes[i].onclick = function (e) {
 					console.log("client is black? " + clientIsBlack)
 					if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
-						// if (!client.clientsTurn) {
-						// 	alert("not your turn! wait for opponent");
-						// 	return;
-						// }
+						if (!clientsTurn) {
+							alert("not your turn! wait for opponent");
+							return;
+						}
 						client.gui.gameBoard.moveOptions(e.target.parentManager.getSpaceId(), client.gui.gameBoard.spaces);
 						e.target.style.cursor = "pointer";
 					}
@@ -56,7 +58,8 @@ function Client() {
 			msg.target.close();
 			alert("a piece was captured");
 		} else if (data.opponentMoved) {
-			this.clientsTurn = true;
+			clientsTurn = true;
+			document.getElementById("table-overlay").style.display = "block";
 			var m = new Move();
 			m.fromJson(data);
 			console.log(m);
@@ -68,6 +71,10 @@ function Client() {
 	}
 
 	this.sendMessage = function (msg) {
+		if (msg.move) {
+			clientsTurn = false;
+			document.getElementById("table-overlay").style.display = "none";
+		}
 		this.socket.send(JSON.stringify(msg));
 	}
 
@@ -81,6 +88,20 @@ function Client() {
 	}
 }
 
+function offset(el) {
+    var rect = el.getBoundingClientRect(),
+    scrollLeft = window.pageXOffset || document.documentElement.scrollLeft,
+    scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+	 var top = rect.top + scrollTop; 
+	 var left = rect.left + scrollLeft; 
+    return {
+		 top: top.toString() + 'px',
+		 left: left.toString() + 'px',
+		 height: rect.height.toString() + 'px',
+		 width: rect.width.toString() + 'px',
+	 }
+}
+
 function GUI() {
 	this.gameBoard = new Board();
 	this.splashScreen = document.createElement("DIALOG");
@@ -91,10 +112,16 @@ function GUI() {
 	this.display = function (boardState = null) {
 		if (this.gameBoard === null) { this.gameBoard = new Board() }
 		document.body.appendChild(this.gameBoard.render());
+		var tableOffset = offset(this.gameBoard.node);
+		document.getElementById("table-overlay").style.top = tableOffset.top;
+		document.getElementById("table-overlay").style.left = tableOffset.left;
+		document.getElementById("table-overlay").style.height = tableOffset.height;
+		document.getElementById("table-overlay").style.width = tableOffset.width;
 		document.body.appendChild(this.splashScreen);
 	}
 
 	this.updateScore = function (pieceVal, isBlack) {
+		console.log("current scores");
 		if (isBlack) {
 			document.getElementById("reds-score").innerHTML += pieceVal;
 		} else {
