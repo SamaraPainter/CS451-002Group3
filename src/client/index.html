@@ -9,9 +9,9 @@
 
 	<script>
 		var client;
-		var sendTestMsg = function (inp) {
-			client.sendMessage({ message: inp.value });
-		}
+		// var sendTestMsg = function (inp) {
+		// 	client.sendMessage({ message: inp.value });
+		// }
 		document.addEventListener("DOMContentLoaded", function () {
 			client = new Client();
 			if (!!client) {
@@ -26,10 +26,10 @@
 </head>
 
 <body class="">
-	<p>
+	<!-- <p>
 		Test Message:
 		<input type="text" onchange="sendTestMsg(this)">
-	</p>
+	</p> -->
 	<h1>
 		Checkers
 	</h1>
@@ -38,12 +38,12 @@
 
 
 	<div id="blacks-score" style="border: 1px solid black; color: red;">
-		<b style ="color: black;">Black's Score</b> </br>
+		<b style="color: black;">Black's Score</b> </br>
 	</div>
 
 
 	<div id="reds-score" style="border: 1px solid black; color: black;">
-		<b style ="color: red;">Red's Score</b> </br>
+		<b style="color: red;">Red's Score</b> </br>
 
 	</div>
 
