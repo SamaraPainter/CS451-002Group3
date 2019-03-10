@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+	<title>Checkers</title>
+
+	<script type="text/javascript" src="script.js"> </script>
+
+	<script>
+		var client;
+		var sendTestMsg = function (inp) {
+			client.sendMessage({ message: inp.value });
+		}
+		document.addEventListener("DOMContentLoaded", function () {
+			client = new Client();
+			if (!!client) {
+				var gui = client.getGUI();
+				gui.display();
+			} else { // in case there's some error w client initialization
+				var gui = new GUI();
+				gui.display();
+			}
+		});
+	</script>
+</head>
+
+<body class="">
+	<p>
+		Test Message:
+		<input type="text" onchange="sendTestMsg(this)">
+	</p>
+	<h1>
+		Checkers
+	</h1>
+
+	<b id="color-indicator" style="color: white;">Your Player's color is: </b></br>
+
+
+	<div id="blacks-score" style="border: 1px solid black; color: red;">
+		<b style ="color: black;">Black's Score</b> </br>
+	</div>
+
+
+	<div id="reds-score" style="border: 1px solid black; color: black;">
+		<b style ="color: red;">Red's Score</b> </br>
+
+	</div>
+
+</body>
+
+</html>
