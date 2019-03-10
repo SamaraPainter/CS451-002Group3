@@ -13,10 +13,14 @@
 			client.sendMessage({ message: inp.value });
 		}
 		document.addEventListener("DOMContentLoaded", function () {
-			var gui = new GUI();
-			gui.display();
 			client = new Client();
-
+			if (!!client) {
+				var gui = client.getGUI();
+				gui.display();
+			} else { // in case there's some error w client initialization
+				var gui = new GUI();
+				gui.display();
+			}
 		});
 	</script>
 </head>
@@ -29,6 +33,19 @@
 	<h1>
 		Checkers
 	</h1>
+
+	<b id="color-indicator" style="color: white;">Your Player's color is: </b></br>
+
+
+	<div id="blacks-score" style="border: 1px solid black; color: red;">
+		<b style ="color: black;">Black's Score</b> </br>
+	</div>
+
+
+	<div id="reds-score" style="border: 1px solid black; color: black;">
+		<b style ="color: red;">Red's Score</b> </br>
+
+	</div>
 
 </body>
 

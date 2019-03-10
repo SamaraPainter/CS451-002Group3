@@ -1,6 +1,9 @@
+var clientIsBlack = true;
+
 function Client() {
-	this.clientIsBlack = true;
 	this.socket = new WebSocket("ws://" + window.location.hostname + ":8081");
+
+	this.clientsTurn = false;
 
 	this.socket.onopen = function () {
 		alert("Communication with server established");
@@ -20,9 +23,44 @@ function Client() {
 		if (data.gamerunning) {
 			msg.target.close();
 			alert("A game is already in progress...");
+		} else if (data.matched) {
+			console.log("matched !");
+			clientIsBlack = data.isBlack;
+			if(clientIsBlack) { 
+				this.clientsTurn = true; 
+				document.getElementById("color-indicator").innerHTML += "Black";
+				document.getElementById("color-indicator").style.backgroundColor = "black";
+			} else {
+				document.getElementById("color-indicator").innerHTML += "Red";
+				document.getElementById("color-indicator").style.backgroundColor = "red";
+			}
+			var pieceNodes = document.querySelectorAll(".piece");
+			for(var i = 0; i < pieceNodes.length; i++) {
+				pieceNodes[i].onclick = function (e) {
+					console.log("client is black? " + clientIsBlack)
+					if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
+						// if (!client.clientsTurn) {
+						// 	alert("not your turn! wait for opponent");
+						// 	return;
+						// }
+						client.gui.gameBoard.moveOptions(e.target.parentManager.getSpaceId(), client.gui.gameBoard.spaces);
+						e.target.style.cursor = "pointer";
+					}
+				}
+			}
+			alert(msg.data)
 		} else if (data.resigned) {
 			msg.target.close();
 			alert("Your opponent resigned... You win!");
+		} else if (data.pieceCaptured) {
+			msg.target.close();
+			alert("a piece was captured");
+		} else if (data.opponentMoved) {
+			this.clientsTurn = true;
+			var m = new Move();
+			m.fromJson(data);
+			console.log(m);
+			m.makeMove();
 		} else {
 			alert(msg.data);
 		}
@@ -31,6 +69,15 @@ function Client() {
 
 	this.sendMessage = function (msg) {
 		this.socket.send(JSON.stringify(msg));
+	}
+
+	this.gui = null;
+
+	this.getGUI = function() {
+		if (this.gui === null) {
+			this.gui = new GUI();
+		}
+		return this.gui;
 	}
 }
 
@@ -47,8 +94,12 @@ function GUI() {
 		document.body.appendChild(this.splashScreen);
 	}
 
-	this.selectPiece = function (coord) {
-
+	this.updateScore = function (pieceVal, isBlack) {
+		if (isBlack) {
+			document.getElementById("reds-score").innerHTML += pieceVal;
+		} else {
+			document.getElementById("blacks-score").innerHTML += pieceVal;
+		}
 	}
 }
 
@@ -73,9 +124,9 @@ function Board() {
 
 			var piece = null;
 			if (yPos === "A" || yPos === "B") {
-				piece = new Piece(true, false);
+				piece = new Piece(true, false, i+j);
 			} else if (yPos === "H" || yPos === "G") {
-				piece = new Piece(false, false);
+				piece = new Piece(false, false, i+j);
 			}
 
 			var space = new Space(xPos, yPos, isDarkSpace, piece);
@@ -96,49 +147,70 @@ function Board() {
 			this.spaces[keys[i]].node.onclick = function (e) { }; // reset to blank event
 		}
 	}
-
-	this.higlightedSpaces = []; // space IDs of highlihgted spaces
-
-	this.moveOptions = function (spaceId, spaces) {
+	
+	// passes in the spaceId of the starting space, the current spaces on the board and,
+	// if the moveOptions are being recorderd on a jump, return the props of the jumping piece
+	this.moveOptions = function (spaceId, spaces, jumpPieceProps=null) {
 		coords = spaceIdToIntCoords(spaceId);
 		var x = coords[0], y = coords[1];
 
-		for (var i = -8; i < 8; i++) {
-			var flips = 0;
-			for (var j = i; flips < 2; j = -i) { // flip increment to check both diagonal movement axes
+		var moves = [];
+
+		for (var i = -1; i <= 1; i++) {
+			if (i === 0) { continue; }
+
+			var flips=0;
+			for (var j = i; flips < 2; j=-i) { // flip increment to check both diagonal movement axes
 				flips++;
 
-				var newX = x + i;
-				var newY = y + j;
-
+				var newX = x+i; var newY = y+j;
 				var newSpaceId = intCoordsToSpaceId(newX, newY);
-
 				if (!isValidSpace(newSpaceId)) { continue; }
+				// newSpaceId = intCoordsToSpaceId(newX, newY);
 
-				newSpaceId = intCoordsToSpaceId(newX, newY);
-
-				var isBackwardsSpace = spaces[spaceId].piece.isBlack ? (newY < y) : (newY > y);
-				if (isBackwardsSpace && !spaces[spaceId].piece.isKing) { // only allow backwards move if king
-					continue;
+				var isBlack, isKing;
+				if (jumpPieceProps === null) { // don't bother checking jumpProps is null
+					isBlack = spaces[spaceId].piece.isBlack;
+					isKing = spaces[spaceId].piece.isKing;
+				} else {
+					isKing = jumpPieceProps.isKing;
+					isBlack = jumpPieceProps.isBlack;
 				}
 
-				if (spaces[newSpaceId].piece === null) {
-					console.log("piece at " + spaceId + " can move to " + newSpaceId);
-					var spaceNode = document.getElementById("space-" + newSpaceId)
-					spaceNode.style.border = "2px solid yellow";
-					spaceNode.style.cursor = "pointer";
+				var isBackwardsSpace = isBlack ? (newY < y) : (newY > y) ;
+				if (isBackwardsSpace && !isKing) { continue; } // only allow backwards move if king
 
-					spaceNode.onclick = function (e) {
-						spaces[spaceId].movePiece(e.target.manager.getSpaceId());
+				var captureAllowed = !!spaces[newSpaceId].piece ? (spaces[newSpaceId].piece.isBlack && !isBlack) || (!spaces[newSpaceId].piece.isBlack && isBlack) : false;
+				if (spaces[newSpaceId].piece === null && jumpPieceProps === null) {  // only allow regular move if not inside jump
 
+					var move = new Move(); // (spaces[spaceId], [spaces[newSpaceId]]);
+					move.addSteps([new MoveStep(spaces[newSpaceId], spaces[spaceId], null)]);
+					spaces[newSpaceId].highlightMove(spaces[spaceId], move);
+
+					moves.push(move);
+				} else if (captureAllowed){
+					var jumpSpaceId = intCoordsToSpaceId(newX+i, newY+j);
+					if (!isValidSpace(jumpSpaceId)) { continue; }
+					if(spaces[jumpSpaceId].piece === null) {
 						var boardObj = document.getElementById("checkers-board").manager;
-						boardObj.clearMoveOptions();
-					};
-				} else {
+						var jumpMoves = boardObj.moveOptions(jumpSpaceId, spaces, {isBlack: isBlack, isKing: isKing});
 
+						var move = new Move();
+						move.addSteps([new MoveStep(spaces[jumpSpaceId], spaces[spaceId], spaces[newSpaceId].piece)]);
+
+						for (var k = 0; k < jumpMoves.length; k++) {
+							move.addSteps(jumpMoves[k].moveSteps);
+						}
+
+						spaces[jumpSpaceId].highlightMove(spaces[spaceId], move);
+						
+						moves.push(move);
+					}
 				}
 			}
 		}
+
+		return moves; 
 	}
 
 	/*
@@ -161,7 +233,10 @@ function Board() {
 					var moveOptions = this.moveOptions;
 					var spaces = this.spaces;
 					pieceNode.onclick = function (e) {
-						moveOptions(e.target.parentManager.getSpaceId(), spaces);
+						console.log("client is black? " + clientIsBlack)
+						if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
+							moveOptions(e.target.parentManager.getSpaceId(), spaces);
+						}
 					}
 				}
 				tr.appendChild(spaceNode);
@@ -176,20 +251,26 @@ function Board() {
 	}
 }
 
-function intCoordsToSpaceId(i, j) {
-	return i.toString() + String.fromCharCode(j + 64);
-}
-
-function spaceIdToIntCoords(spaceId) {
-	var i = spaceId[0], j = spaceId[1];
-	return [parseInt(i), j.charCodeAt(0) - 64];
-}
-
-function Space(xPos, yPos, isDarkSpace, piece = null) {
+function Space(xPos, yPos, isDarkSpace, piece=null) {
 	this.xPos = xPos;
 	this.yPos = yPos;
 	this.isDarkSpace = isDarkSpace;
 	this.piece = piece;
+
+	this.toJson = function() {
+		return {
+			xPos: this.xPos,
+			yPos: this.yPos,
+			isDarkSpace: this.isDarkSpace,
+			piece: !!this.piece ? this.piece.toJson() : null
+		}
+	}
+
+	this.fromJson = function(obj) {
+		this.xPos = obj.xPos;
+		this.yPos = obj.yPos;
+		this.isDarkSpace = obj.isDarkSpace;
+	}
 
 	this.getSpaceId = function () {
 		return this.xPos + this.yPos;
@@ -200,15 +281,29 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 		return true;
 	}
 
-	this.movePiece = function (toSpaceId) {
-		var newspace = document.getElementById("space-" + toSpaceId);
+	this.movePiece = function(toSpace) {
+		var newspace = document.getElementById("space-"+toSpace.getSpaceId());
+		// var newspace = toSpace.node;
 		newspace.appendChild(this.piece.node);
 		newspace.manager.piece = this.piece;
 		this.piece.node.parentManager = newspace.manager;
 		this.piece = null;
 	}
 
-	this.render = function () {
+	this.highlightMove = function(fromSpace, move) {
+		this.node.style.border = "2px solid yellow";
+		this.node.style.cursor = "pointer";
+
+		this.node.onclick = function(e) {
+			var boardObj = document.getElementById("checkers-board").manager;
+			boardObj.clearMoveOptions();
+
+			move.makeMove();
+			client.sendMessage(move.toJson());
+		};
+	}
+
+	this.render = function() {
 		var td = document.createElement("TD");
 
 		var spaceId = this.getSpaceId();
@@ -236,15 +331,24 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 
 }
 
-function Piece(isBlack, isKing) {
-
+function Piece(isBlack, isKing, id) {
 	this.isBlack = isBlack;
 	this.isKing = isKing;
+	this.id = id;
 
-	this.moveTo = function (toSpaceIr) {
+	this.remove = function() {
+		this.node.remove();
+		this.node.parentManager.piece = null;
 	}
 
-	this.remove = function () {
+	this.makeKing = function() {
+		// king piece is represented by HTMl entity
+		if (isBlack) {
+			this.node.innerHTML = "&#9818;"; 
+		} else {
+			this.node.innerHTML = "&#9812;";
+		}
+		this.isKing = true;
 	}
 
 	this.render = function () {
@@ -260,7 +364,13 @@ function Piece(isBlack, isKing) {
 			piece.style.color = "black";
 		}
 
-		piece.style.cursor = "pointer";
+		piece.id = "piece-" + this.id;
+
+		if (clientIsBlack == this.isBlack) {
+			piece.style.cursor = "pointer";
+		}
+
+		piece.classList.add("piece");
 
 		piece.manager = this;
 		this.node = piece;
@@ -268,35 +378,89 @@ function Piece(isBlack, isKing) {
 		return piece;
 	}
 
-}
-
-function Move(startIndex, space) {
-
-}
-
-function computeDiagonalPath(from, to) {
-	if (from.length !== 2 || to.length !== 2) { return []; } // improper cell formatting
-
-	var fromRow = String.toCharCode(from[0].toLowerCase()) - 65;
-	var fromCol;
-	try { fromCol = parseInt(from[1]); }
-	catch (e) { console.error("could not parse '" + from[1] + "' to int"); return []; }
-
-	var toRow = String.toCharCode(to[0].toLowerCase()) - 65;
-	var toCol;
-	try { toCol = parseInt(to[1]); }
-	catch (e) { console.error("could not parse '" + to[1] + "' to int"); return []; }
-
-	// handle cases where path can't be drawn
-	if (
-		fromRow === toRow || fromCol === toCol
-		/* TODO: add other identified edge-cases */
-	) { return []; }
-
-	var incr = (fromRow > toRow) && (fromCol > toCol) ? 1 : -1;
-
-	var paths = [];
-	while ((fromRow > toRow) && (fromCol > toCol)) {
-
+	this.toJson = function() {
+		return {
+			isBlack: this.isBlack, 
+			isKing: this.isKing,
+			id: this.id,
+		}
 	}
+}
+
+function MoveStep(to, from, captured) {
+	this.to = to;
+	this.from = from;
+	this.captured = captured;
+
+	this.toJson = function () {
+		return {
+			to: this.to.toJson(),
+			from: this.from.toJson(),
+			captured: !!this.captured ? this.captured.toJson() : null
+		};
+	}
+}
+
+function Move() { 
+	this.moveSteps = [];
+
+	this.addSteps = function(steps) {
+		for(var i = 0; i < steps.length; i++) {
+			this.moveSteps.push(steps[i]);
+		}
+	}
+
+	this.makeMove = function() {
+		for (var i = 0; i < this.moveSteps.length; i++) {
+			var from = this.moveSteps[i].from;
+			var to = this.moveSteps[i].to;
+			from.movePiece(to);
+			if (!!this.moveSteps[i].captured) {
+				this.moveSteps[i].captured.remove();
+				var pieceVal = this.moveSteps[i].captured.node.innerHTML;
+				var pieceIsBlack = this.moveSteps[i].captured.isBlack;
+				client.gui.updateScore(pieceVal, pieceIsBlack);
+			}
+
+			// check if piece has reached the other side after the move and king it
+			var y = spaceIdToIntCoords(to.getSpaceId())[1];
+			if ((y == 8 && to.piece.isBlack) || (y == 1 && !to.piece.isBlack)) {
+				to.piece.makeKing();
+			}
+		}
+	}
+
+	this.toJson = function() {
+		var obj = { steps: [], opponentMoved: true };
+		for (var i = 0; i < this.moveSteps.length; i++) {
+			obj.steps.push(this.moveSteps[i].toJson());
+		}
+		return obj;
+	}
+
+	this.fromJson = function(obj) {
+		for (var i = 0; i < obj.steps.length; i++) {
+			var toSpaceId = obj.steps[i].to.xPos + obj.steps[i].to.yPos;
+			var to = document.getElementById("space-" + toSpaceId).manager;
+
+			var fromSpaceId = obj.steps[i].from.xPos + obj.steps[i].from.yPos;
+			var from = document.getElementById("space-" + fromSpaceId).manager;
+
+			// var captured = !!obj.steps[i].captured ? new Piece(obj.steps[i].captured.isBlack, obj.steps[i].captured.isKing) : null;
+
+			var captured = !!obj.steps[i].captured ? document.getElementById("piece-" + obj.steps[i].captured.id).manager : null;
+
+			var s = new MoveStep(to, from, captured);
+			this.moveSteps.push(s);
+		}
+	}
+}
+
+function intCoordsToSpaceId(i, j) {
+	return i.toString() + String.fromCharCode(j+64);
+}
+
+function spaceIdToIntCoords(spaceId) {
+	var i = spaceId[0], j = spaceId[1];
+	return [parseInt(i), j.charCodeAt(0)-64];
 }

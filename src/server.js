@@ -7,7 +7,11 @@ var WebSocketServer = require('ws').Server;   // include the webSocket library
 const wsSERVER_PORT = 8081;                 // port number for the webSocket server
 var wss = new WebSocketServer({ port: wsSERVER_PORT }); // the webSocket server
 
-var sendMessage = function (ws, str) {
+var sendJsonMessage = function (ws, json) {
+    ws.send(JSON.stringify(json));
+}
+
+var sendStringMessage = function (ws, str) {
     ws.send(JSON.stringify({ message: str }));
 }
 
@@ -16,7 +20,7 @@ var onPlayerMessage = function (event) {
         currPlayer = (currPlayer + 1) % 2;
         players[currPlayer].send(event.data);
     } else {
-        sendMessage(event.target, "Wait for your turn!");
+        sendStringMessage(event.target, "Wait for your turn!");
     }
 }
 
@@ -39,9 +43,9 @@ var joinGame = function (client) {
     if (!players[0]) { // first client connects
         console.log("Player 0 connected");
         players[0] = client;
-        sendMessage(client, "You requested to play! Waiting for opponent...");
+        sendStringMessage(client, "You requested to play! Waiting for opponent...");
         players[0].onmessage = function (event) {
-            sendMessage(players[0], "Still waiting for an opponent...");
+            sendStringMessage(players[0], "Still waiting for an opponent...");
         }
         players[0].onclose = function () {
             players[0] = null;
@@ -50,8 +54,19 @@ var joinGame = function (client) {
     } else if (!players[1]) { // second client connected
         console.log("Player 1 connected");
         players[1] = client;
-        sendMessage(players[0], "Opponent Found! Your turn!");
-        sendMessage(players[1], "Opponent Found! Your opponent's turn");
+        // sendStringMessage(players[0], "Opponent Found! Your turn!");
+        sendJsonMessage(players[0], {
+			  message: "Opponent Found! Your turn!",
+			  matched: true,
+			  isBlack: true
+		  });
+
+        // sendStringMessage(players[1], "Opponent Found! Your opponent's turn");
+        sendJsonMessage(players[1], {
+			  message: "Opponent Found! Your opponent's turn!",
+			  matched: true,
+			  isBlack: false
+		  });
         currPlayer = 0;
         players[0].onmessage = onPlayerMessage;
         players[1].onmessage = onPlayerMessage;
