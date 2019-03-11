@@ -120,16 +120,15 @@ function Board() {
 		for (var j = 1; j <= 8; j++) {
 			var xPos = intCoordsToSpaceId(i, j)[0];
 			var yPos = intCoordsToSpaceId(i, j)[1];
-
 			var isDarkSpace = (i + j) % 2 == 0 ? "white" : "grey";
-
 			var piece = null;
-			if (yPos === "A" || yPos === "B") {
-				piece = new Piece(true, false, i + j);
-			} else if (yPos === "H" || yPos === "G") {
-				piece = new Piece(false, false, i + j);
+			if (isDarkSpace === "white") {
+				if (yPos === "A" || yPos === "B" || yPos === "C") {
+					piece = new Piece(true, false, i + j);
+				} else if (yPos === "H" || yPos === "G" || yPos === "F") {
+					piece = new Piece(false, false, i + j);
+				}
 			}
-
 			var space = new Space(xPos, yPos, isDarkSpace, piece);
 			this.spaces[xPos + yPos] = space;
 		}
