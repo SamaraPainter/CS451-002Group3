@@ -1,4 +1,5 @@
 var clientIsBlack = true;
+var clientsTurn = false;
 
 function Client() {
 	this.socket = new WebSocket("ws://" + window.location.hostname + ":8081");
@@ -20,29 +21,30 @@ function Client() {
 	this.socket.onmessage = function (msg) { // msg.data is a stringified object
 		var data = JSON.parse(msg.data);
 		console.log(msg.data);
+		clientsTurn = msg.currPlayerIsBlack === clientIsBlack;
 		if (data.gamerunning) {
 			msg.target.close();
 			alert("A game is already in progress...");
 		} else if (data.matched) {
 			console.log("matched !");
 			clientIsBlack = data.isBlack;
-			if (clientIsBlack) {
+			if(clientIsBlack) { 
 				client.myTurn = true;
 				document.getElementById("color-indicator").innerHTML += "Black";
 				document.getElementById("color-indicator").style.backgroundColor = "black";
 			} else {
+				toggleNode(document.getElementById("table-overlay"));
 				document.getElementById("color-indicator").innerHTML += "Red";
 				document.getElementById("color-indicator").style.backgroundColor = "red";
 			}
 			var pieceNodes = document.querySelectorAll(".piece");
 			for (var i = 0; i < pieceNodes.length; i++) {
+				if (clientIsBlack == this.isBlack) {
+					pieceNodes[i].style.cursor = "pointer";
+				}
 				pieceNodes[i].onclick = function (e) {
 					console.log("client is black? " + clientIsBlack)
 					if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
-						// if (!client.myTurn) {
-						// 	alert("not your turn! wait for opponent");
-						// 	return;
-						// }
 						client.gui.gameBoard.moveOptions(e.target.parentManager.getSpaceId(), client.gui.gameBoard.spaces);
 						e.target.style.cursor = "pointer";
 					}
@@ -54,10 +56,12 @@ function Client() {
 			alert("Your opponent resigned... You win!");
 		} else if (data.pieceCaptured) {
 			client.myTurn = !client.myTurn;
+			toggleNode(document.getElementById("table-overlay"));
 			msg.target.close();
 			alert("a piece was captured");
 		} else if (data.opponentMoved) {
 			client.myTurn = !client.myTurn;
+			toggleNode(document.getElementById("table-overlay"));
 			var m = new Move();
 			m.fromJson(data);
 			console.log(m);
@@ -69,6 +73,10 @@ function Client() {
 	}
 
 	this.sendMessage = function (msg) {
+		// if (msg.move) {
+		// 	clientsTurn = false;
+		// 	toggleNode(document.getElementById("table-overlay").style.display)
+		// }
 		this.socket.send(JSON.stringify(msg));
 	}
 
@@ -82,6 +90,20 @@ function Client() {
 	}
 }
 
+function offset(el) {
+    var rect = el.getBoundingClientRect(),
+    scrollLeft = window.pageXOffset || document.documentElement.scrollLeft,
+    scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+	 var top = rect.top + scrollTop; 
+	 var left = rect.left + scrollLeft; 
+    return {
+		 top: top.toString() + 'px',
+		 left: left.toString() + 'px',
+		 height: rect.height.toString() + 'px',
+		 width: rect.width.toString() + 'px',
+	 }
+}
+
 function GUI() {
 	this.gameBoard = new Board();
 	this.splashScreen = document.createElement("DIALOG");
@@ -91,11 +113,17 @@ function GUI() {
 
 	this.display = function (boardState = null) {
 		if (this.gameBoard === null) { this.gameBoard = new Board() }
-		document.body.appendChild(this.gameBoard.render());
+		document.getElementById("board-container").appendChild(this.gameBoard.render());
+		var tableOffset = offset(this.gameBoard.node);
+		document.getElementById("table-overlay").style.top = tableOffset.top;
+		document.getElementById("table-overlay").style.left = tableOffset.left;
+		document.getElementById("table-overlay").style.height = tableOffset.height;
+		document.getElementById("table-overlay").style.width = tableOffset.width;
 		document.body.appendChild(this.splashScreen);
 	}
 
 	this.updateScore = function (pieceVal, isBlack) {
+		console.log("current scores");
 		if (isBlack) {
 			document.getElementById("reds-score").innerHTML += pieceVal;
 		} else {
@@ -124,10 +152,10 @@ function Board() {
 			var isDarkSpace = (i + j) % 2 == 0 ? "white" : "grey";
 
 			var piece = null;
-			if (yPos === "A" || yPos === "B") {
-				piece = new Piece(true, false, i + j);
-			} else if (yPos === "H" || yPos === "G") {
-				piece = new Piece(false, false, i + j);
+			if ((yPos === "A" || yPos === "B" || yPos === "C") && isDarkSpace == "grey") {
+				piece = new Piece(true, false, xPos + yPos);
+			} else if ((yPos === "F" || yPos === "H" || yPos === "G") && isDarkSpace == "grey") {
+				piece = new Piece(false, false, xPos + yPos);
 			}
 
 			var space = new Space(xPos, yPos, isDarkSpace, piece);
@@ -305,6 +333,7 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 			move.makeMove();
 			client.sendMessage(move.toJson());
 			client.myTurn = !client.myTurn;
+			toggleNode(document.getElementById("table-overlay"));
 		};
 	}
 
@@ -371,10 +400,6 @@ function Piece(isBlack, isKing, id) {
 
 		piece.id = "piece-" + this.id;
 
-		if (clientIsBlack == this.isBlack) {
-			piece.style.cursor = "pointer";
-		}
-
 		piece.classList.add("piece");
 
 		piece.manager = this;
@@ -390,6 +415,13 @@ function Piece(isBlack, isKing, id) {
 			id: this.id,
 		}
 	}
+
+	this.fromJson = function (obj) {
+		this.isBlack = obj.isBlack;
+		this.isKing = obj.isKing;
+		this.node = document.getElementById("piece-" + obj.id);
+	}
+
 }
 
 function MoveStep(to, from, captured) {
@@ -421,9 +453,12 @@ function Move() {
 			var to = this.moveSteps[i].to;
 			from.movePiece(to);
 			if (!!this.moveSteps[i].captured) {
-				this.moveSteps[i].captured.remove();
+				console.log(this.moveSteps[i]);
+				this.moveSteps[i].captured.node.remove(); //remove();
+				this.moveSteps[i].captured.node.parentManager.piece = null; //remove();
 				var pieceVal = this.moveSteps[i].captured.node.innerHTML;
 				var pieceIsBlack = this.moveSteps[i].captured.isBlack;
+				console.log("piece is captured, isBlack: "+pieceIsBlack);
 				client.gui.updateScore(pieceVal, pieceIsBlack);
 			}
 
@@ -453,7 +488,14 @@ function Move() {
 
 			// var captured = !!obj.steps[i].captured ? new Piece(obj.steps[i].captured.isBlack, obj.steps[i].captured.isKing) : null;
 
-			var captured = !!obj.steps[i].captured ? document.getElementById("piece-" + obj.steps[i].captured.id).manager : null;
+			var captured = null;
+			if(!!obj.steps[i].captured) {
+				captured = document.getElementById("piece-" + obj.steps[i].captured.id).manager;
+				captured.node = document.getElementById("piece-" + obj.steps[i].captured.id);
+				captured.isBlack = obj.steps[i].captured.isBlack;
+				captured.isKing = obj.steps[i].captured.isKing;
+			}
+			console.log(captured);
 
 			var s = new MoveStep(to, from, captured);
 			this.moveSteps.push(s);
@@ -468,4 +510,12 @@ function intCoordsToSpaceId(i, j) {
 function spaceIdToIntCoords(spaceId) {
 	var i = spaceId[0], j = spaceId[1];
 	return [parseInt(i), j.charCodeAt(0) - 64];
+}
+
+function toggleNode(el) {
+	if(el.style.display == 'block') {
+		el.style.display = 'none';
+	} else {
+		el.style.display = 'block';
+	}
 }

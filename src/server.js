@@ -8,11 +8,12 @@ const wsSERVER_PORT = 8081;                 // port number for the webSocket ser
 var wss = new WebSocketServer({ port: wsSERVER_PORT }); // the webSocket server
 
 var sendJsonMessage = function (ws, json) {
+	 json.currPlayerIsBlack = currPlayer === 0;
     ws.send(JSON.stringify(json));
 }
 
 var sendStringMessage = function (ws, str) {
-    ws.send(JSON.stringify({ message: str }));
+    ws.send(JSON.stringify({ message: str, currPlayerIsBlack: currPlayer === 0}));
 }
 
 var onPlayerMessage = function (event) {
