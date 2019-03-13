@@ -9,9 +9,6 @@ To run the application:
 
 1. Open a web-browser
 2. Connect to the URL above
-3. Open a second tab
-4. Connect to the same URL
-5. The game starts
 
 ## Testing
 
