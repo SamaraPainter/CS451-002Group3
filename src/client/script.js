@@ -8,15 +8,15 @@ function Client() {
 
 	this.socket.onopen = function () {
 		alert("Communication with server established");
-	}
+	};
 
 	this.socket.onclose = function () {
 		alert("Connection to server lost");
-	}
+	};
 
 	this.socket.onerror = function (e) {
 		alert("Server crashed...");
-	}
+	};
 
 	this.socket.onmessage = function (msg) { // msg.data is a stringified object
 		var data = JSON.parse(msg.data);
@@ -43,14 +43,13 @@ function Client() {
 					pieceNodes[i].style.cursor = "pointer";
 				}
 				pieceNodes[i].onclick = function (e) {
-					console.log("client is black? " + clientIsBlack)
 					if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
 						client.gui.gameBoard.moveOptions(e.target.parentManager.getSpaceId(), client.gui.gameBoard.spaces);
 						e.target.style.cursor = "pointer";
 					}
-				}
+				};
 			}
-			alert(msg.data)
+			alert(msg.data);
 		} else if (data.resigned) {
 			msg.target.close();
 			alert("Your opponent resigned... You win!");
@@ -64,13 +63,11 @@ function Client() {
 			toggleNode(document.getElementById("table-overlay"));
 			var m = new Move();
 			m.fromJson(data);
-			console.log(m);
 			m.makeMove();
 		} else {
 			alert(msg.data);
 		}
-
-	}
+	};
 
 	this.sendMessage = function (msg) {
 		// if (msg.move) {
@@ -78,7 +75,7 @@ function Client() {
 		// 	toggleNode(document.getElementById("table-overlay").style.display)
 		// }
 		this.socket.send(JSON.stringify(msg));
-	}
+	};
 
 	this.gui = null;
 
@@ -87,7 +84,7 @@ function Client() {
 			this.gui = new GUI();
 		}
 		return this.gui;
-	}
+	};
 }
 
 function offset(el) {
@@ -101,7 +98,7 @@ function offset(el) {
 		 left: left.toString() + 'px',
 		 height: rect.height.toString() + 'px',
 		 width: rect.width.toString() + 'px',
-	 }
+	 };
 }
 
 function GUI() {
@@ -112,7 +109,7 @@ function GUI() {
 	// this.splashScreen.close();
 
 	this.display = function (boardState = null) {
-		if (this.gameBoard === null) { this.gameBoard = new Board() }
+		if (this.gameBoard === null) { this.gameBoard = new Board(); }
 		document.getElementById("board-container").appendChild(this.gameBoard.render());
 		var tableOffset = offset(this.gameBoard.node);
 		document.getElementById("table-overlay").style.top = tableOffset.top;
@@ -120,16 +117,27 @@ function GUI() {
 		document.getElementById("table-overlay").style.height = tableOffset.height;
 		document.getElementById("table-overlay").style.width = tableOffset.width;
 		document.body.appendChild(this.splashScreen);
-	}
+	};
 
+	this.blackScore = 0;
+	this.redScore = 0;
 	this.updateScore = function (pieceVal, isBlack) {
-		console.log("current scores");
 		if (isBlack) {
 			document.getElementById("reds-score").innerHTML += pieceVal;
+			this.redScore++;
 		} else {
 			document.getElementById("blacks-score").innerHTML += pieceVal;
+			this.blackScore++;
 		}
-	}
+
+		if (this.blackScore >= 12) {
+			document.getElementById("table-overlay").style.display = "block";
+			document.getElementById("table-overlay-text").innerHTML = "Black Wins!";
+		} else if (this.redScore >= 12) {
+			document.getElementById("table-overlay").style.display = "block";
+			document.getElementById("table-overlay-text").innerHTML = "Red Wins!";
+		}
+	};
 }
 
 function isValidSpace(spaceId) {
@@ -165,17 +173,16 @@ function Board() {
 
 	this.boardState = function () {
 		return this.spaces;
-	}
+	};
 
 	this.clearMoveOptions = function () {
-		// console.log("clearing spaces");
 		var keys = Object.keys(this.spaces);
 		for (var i = 0; i < keys.length; i++) {
 			this.spaces[keys[i]].node.style.border = "2px solid black";
 			this.spaces[keys[i]].node.style.cursor = "default";
 			this.spaces[keys[i]].node.onclick = function (e) { }; // reset to blank event
 		}
-	}
+	};
 
 	// passes in the spaceId of the starting space, the current spaces on the board and,
 	// if the moveOptions are being recorderd on a jump, return the props of the jumping piece
@@ -184,6 +191,7 @@ function Board() {
 		var x = coords[0], y = coords[1];
 
 		var moves = [];
+		var moveSpace = null;
 
 		for (var i = -1; i <= 1; i++) {
 			if (i === 0) { continue; }
@@ -232,6 +240,7 @@ function Board() {
 						}
 
 						spaces[jumpSpaceId].highlightMove(spaces[spaceId], move);
+						moveSpace = spaces[jumpSpaceId]
 
 						moves.push(move);
 					}
@@ -239,8 +248,12 @@ function Board() {
 			}
 		}
 
+		if (moves.length === 1 && !!moveSpace) {
+			moveSpace.node.click()
+		}
+
 		return moves;
-	}
+	};
 
 	/*
 	 * Board is represented as a table
@@ -248,8 +261,6 @@ function Board() {
 	this.render = function () {
 		var table = document.createElement("TABLE");
 		table.setAttribute("id", "checkers-board");
-		// table.setAttribute("border", "1px black");
-		console.log(this.spaces);
 		for (var i = 1; i <= 8; i++) {
 			var tr = document.createElement("TR");
 			tr.setAttribute("id", "row-" + i.toString());
@@ -262,7 +273,6 @@ function Board() {
 					var moveOptions = this.moveOptions;
 					var spaces = this.spaces;
 					pieceNode.onclick = function (e) {
-						console.log("client is black? " + clientIsBlack)
 						if (clientIsBlack == e.target.manager.isBlack) { // if client and piece are the same color
 							moveOptions(e.target.parentManager.getSpaceId(), spaces);
 						}
@@ -277,7 +287,7 @@ function Board() {
 		this.node = table;
 
 		return table;
-	}
+	};
 }
 
 function Space(xPos, yPos, isDarkSpace, piece = null) {
@@ -293,22 +303,22 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 			isDarkSpace: this.isDarkSpace,
 			piece: !!this.piece ? this.piece.toJson() : null
 		}
-	}
+	};
 
 	this.fromJson = function (obj) {
 		this.xPos = obj.xPos;
 		this.yPos = obj.yPos;
 		this.isDarkSpace = obj.isDarkSpace;
-	}
+	};
 
 	this.getSpaceId = function () {
 		return this.xPos + this.yPos;
-	}
+	};
 
 	this.validate = function () {
 		// TODO: fix stub
 		return true;
-	}
+	};
 
 	this.movePiece = function (toSpace) {
 		var newspace = document.getElementById("space-" + toSpace.getSpaceId());
@@ -317,7 +327,7 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 		newspace.manager.piece = this.piece;
 		this.piece.node.parentManager = newspace.manager;
 		this.piece = null;
-	}
+	};
 
 	this.highlightMove = function (fromSpace, move) {
 		if (!client.myTurn) {
@@ -335,7 +345,7 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 			client.myTurn = !client.myTurn;
 			toggleNode(document.getElementById("table-overlay"));
 		};
-	}
+	};
 
 	this.render = function () {
 		var td = document.createElement("TD");
@@ -361,7 +371,7 @@ function Space(xPos, yPos, isDarkSpace, piece = null) {
 		this.node = td;
 
 		return td;
-	}
+	};
 
 }
 
@@ -373,7 +383,7 @@ function Piece(isBlack, isKing, id) {
 	this.remove = function () {
 		this.node.remove();
 		this.node.parentManager.piece = null;
-	}
+	};
 
 	this.makeKing = function () {
 		// king piece is represented by HTMl entity
@@ -383,7 +393,7 @@ function Piece(isBlack, isKing, id) {
 			this.node.innerHTML = "&#9812;";
 		}
 		this.isKing = true;
-	}
+	};
 
 	this.render = function () {
 		var piece = document.createElement("div");
@@ -406,21 +416,21 @@ function Piece(isBlack, isKing, id) {
 		this.node = piece;
 
 		return piece;
-	}
+	};
 
 	this.toJson = function () {
 		return {
 			isBlack: this.isBlack,
 			isKing: this.isKing,
 			id: this.id,
-		}
-	}
+		};
+	};
 
 	this.fromJson = function (obj) {
 		this.isBlack = obj.isBlack;
 		this.isKing = obj.isKing;
 		this.node = document.getElementById("piece-" + obj.id);
-	}
+	};
 
 }
 
@@ -435,7 +445,7 @@ function MoveStep(to, from, captured) {
 			from: this.from.toJson(),
 			captured: !!this.captured ? this.captured.toJson() : null
 		};
-	}
+	};
 }
 
 function Move() {
@@ -445,7 +455,7 @@ function Move() {
 		for (var i = 0; i < steps.length; i++) {
 			this.moveSteps.push(steps[i]);
 		}
-	}
+	};
 
 	this.makeMove = function () {
 		for (var i = 0; i < this.moveSteps.length; i++) {
@@ -453,12 +463,10 @@ function Move() {
 			var to = this.moveSteps[i].to;
 			from.movePiece(to);
 			if (!!this.moveSteps[i].captured) {
-				console.log(this.moveSteps[i]);
 				this.moveSteps[i].captured.node.remove(); //remove();
 				this.moveSteps[i].captured.node.parentManager.piece = null; //remove();
 				var pieceVal = this.moveSteps[i].captured.node.innerHTML;
 				var pieceIsBlack = this.moveSteps[i].captured.isBlack;
-				console.log("piece is captured, isBlack: "+pieceIsBlack);
 				client.gui.updateScore(pieceVal, pieceIsBlack);
 			}
 
@@ -468,7 +476,7 @@ function Move() {
 				to.piece.makeKing();
 			}
 		}
-	}
+	};
 
 	this.toJson = function () {
 		var obj = { steps: [], opponentMoved: true };
@@ -476,7 +484,7 @@ function Move() {
 			obj.steps.push(this.moveSteps[i].toJson());
 		}
 		return obj;
-	}
+	};
 
 	this.fromJson = function (obj) {
 		for (var i = 0; i < obj.steps.length; i++) {
@@ -495,12 +503,11 @@ function Move() {
 				captured.isBlack = obj.steps[i].captured.isBlack;
 				captured.isKing = obj.steps[i].captured.isKing;
 			}
-			console.log(captured);
 
 			var s = new MoveStep(to, from, captured);
 			this.moveSteps.push(s);
 		}
-	}
+	};
 }
 
 function intCoordsToSpaceId(i, j) {
